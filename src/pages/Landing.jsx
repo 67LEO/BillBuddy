@@ -96,13 +96,6 @@ export default function Landing() {
 
       {/* ============ HERO ============ */}
       <section className="relative px-6 md:px-8 pt-12 md:pt-16 pb-20 md:pb-28 overflow-hidden">
-        <div className="absolute top-20 left-10 font-display italic text-[15px] opacity-60 hidden lg:block">
-          — make the split, dear friend —
-        </div>
-        <div className="absolute top-24 right-12 hidden lg:flex items-center gap-2 text-[12px] tracking-[.25em] uppercase opacity-70">
-          <span>Flow IV</span><span>·</span><span>August 2024</span>
-        </div>
-
         <div className="max-w-[1280px] mx-auto relative">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-0 relative">
             {/* Left Page */}
@@ -286,7 +279,7 @@ export default function Landing() {
         <div className="max-w-[1280px] mx-auto relative">
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 md:mb-12 gap-4">
             <div>
-              <div className="text-[11px] tracking-[.3em] uppercase mb-3">Settlement Flow · No. 04</div>
+              <div className="text-[11px] tracking-[.3em] uppercase mb-3">How It Works · Step 01</div>
               <h2 className="font-display text-4xl md:text-7xl font-black leading-[0.9]">
                 The receipt that
                 <br />
@@ -296,7 +289,7 @@ export default function Landing() {
               </h2>
             </div>
             <div className="max-w-sm md:text-right">
-              <p className="font-display italic text-lg leading-snug">A pinned, scroll-pulled split where every rupee knows its owner.</p>
+              <p className="font-display italic text-lg leading-snug">A simple split where every rupee knows its owner — no spreadsheets, no awkward chats.</p>
               <div className="mt-4 flex md:justify-end gap-2">
                 <span className="chip">shared</span>
                 <span className="chip" style={{ background: 'var(--cream)' }}>5 people</span>
@@ -310,13 +303,15 @@ export default function Landing() {
               <div className="absolute top-6 left-6 text-[10px] tracking-[.3em] uppercase">Step I</div>
               <div className="mt-12">
                 <p className="font-display italic text-xl md:text-2xl leading-snug max-w-sm">
-                  "Tonight, I paid the table. Tomorrow, the group will settle it — cleanly."
+                  "I paid the dinner bill. BillBuddy split it among four — cleanly."
                 </p>
                 <div className="mt-8 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[var(--crimson)] border-2 border-[var(--ink)] flex items-center justify-center">
-                    <i className="ti ti-arrow-right text-[var(--cream)]" />
-                  </div>
-                  <span className="text-sm font-medium">Continue to the split</span>
+                  <button onClick={handleGetStarted} className="flex items-center gap-3 cursor-pointer group/btn">
+                    <div className="w-10 h-10 rounded-full bg-[var(--crimson)] border-2 border-[var(--ink)] flex items-center justify-center group-hover/btn:scale-110 transition-transform">
+                      <i className="ti ti-arrow-right text-[var(--cream)]" />
+                    </div>
+                    <span className="text-sm font-medium">Continue to the split</span>
+                  </button>
                 </div>
               </div>
               <div className="absolute bottom-10 left-10 w-36 h-36 rounded-full overflow-hidden border-2 border-[var(--ink)] pop-shadow rotate-[-12deg] hidden md:block">
@@ -327,7 +322,7 @@ export default function Landing() {
               </svg>
             </div>
             <div className="relative p-8 md:p-12 hidden md:block">
-              <div className="absolute top-6 right-6 text-[10px] tracking-[.3em] uppercase">Plate IV</div>
+              <div className="absolute top-6 right-6 text-[10px] tracking-[.3em] uppercase">How It Works · Step 02</div>
               <div className="absolute right-10 top-1/2 -translate-y-1/2">
                 <div className="relative">
                   <img
@@ -342,8 +337,8 @@ export default function Landing() {
                 </div>
               </div>
               <div className="absolute bottom-10 left-10 right-1/2 mr-8">
-                <div className="text-[10px] tracking-[.3em] uppercase opacity-70 mb-1">fig. 4 — the balancing</div>
-                <div className="font-display italic text-sm leading-snug">optimized by BillBuddy, 2024.</div>
+                <div className="text-[10px] tracking-[.3em] uppercase opacity-70 mb-1">fig. 1 — the balancing</div>
+                <div className="font-display italic text-sm leading-snug">optimized by BillBuddy, 2025.</div>
               </div>
             </div>
           </div>
@@ -378,11 +373,11 @@ export default function Landing() {
           {/* Compact testimonial grid for mobile/tablet */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 lg:hidden">
             {[
-              { img: 'https://images.pexels.com/photos/9943265/pexels-photo-9943265.jpeg?auto=compress&cs=tinysrgb&w=900&q=80', alt: 'Friends sharing a plan', bg: 'var(--mint)', quote: '"I paid for the stay. BillBuddy remembers the rest."', who: 'Maya · paid' },
-              { img: 'https://images.pexels.com/photos/2981109/pexels-photo-2981109.jpeg?auto=compress&cs=tinysrgb&w=900&q=80', alt: 'Friends planning a trip', bg: 'var(--cream-2)', quote: '"I can see my share before I even ask."', who: 'Riya · owes ₹620' },
-              { img: 'https://images.pexels.com/photos/7820357/pexels-photo-7820357.jpeg?auto=compress&cs=tinysrgb&w=900&q=80', alt: 'Friends exchanging a card', bg: 'var(--pumpkin)', quote: '"The awkward math finally has a finish line."', who: 'Kabir · settled' },
-              { img: 'https://images.pexels.com/photos/8970670/pexels-photo-8970670.jpeg?auto=compress&cs=tinysrgb&w=900&q=80', alt: 'Phone and expense planning', bg: 'var(--crimson)', quote: '"One receipt in. Five clean balances out."', who: 'Neha · organizer' },
-              { img: 'https://images.pexels.com/photos/6327601/pexels-photo-6327601.jpeg?auto=compress&cs=tinysrgb&w=900&q=80', alt: 'Shared dinner', bg: 'var(--ink)', quote: '"Fair doesn\'t have to mean fragile."', who: 'Dev · group host' },
+              { img: 'https://images.pexels.com/photos/9943265/pexels-photo-9943265.jpeg?auto=compress&cs=tinysrgb&w=900&q=80', alt: 'Friends sharing a plan', bg: 'var(--mint)', quote: '"I paid for the stay. BillBuddy split it four ways — done."', who: 'Maya · paid' },
+              { img: 'https://images.pexels.com/photos/2981109/pexels-photo-2981109.jpeg?auto=compress&cs=tinysrgb&w=900&q=80', alt: 'Friends planning a trip', bg: 'var(--cream-2)', quote: '"I can see my share before I even ask. No awkward texts."', who: 'Riya · owes ₹620' },
+              { img: 'https://images.pexels.com/photos/7820357/pexels-photo-7820357.jpeg?auto=compress&cs=tinysrgb&w=900&q=80', alt: 'Friends exchanging a card', bg: 'var(--pumpkin)', quote: '"Settled 5 people in 2 taps. No Excel needed."', who: 'Kabir · settled' },
+              { img: 'https://images.pexels.com/photos/8970670/pexels-photo-8970670.jpeg?auto=compress&cs=tinysrgb&w=900&q=80', alt: 'Phone and expense planning', bg: 'var(--crimson)', quote: '"One receipt in. Everyone knew their share instantly."', who: 'Neha · organizer' },
+              { img: 'https://images.pexels.com/photos/6327601/pexels-photo-6327601.jpeg?auto=compress&cs=tinysrgb&w=900&q=80', alt: 'Shared dinner', bg: 'var(--ink)', quote: '"No one chases anyone. BillBuddy does the math."', who: 'Arjun · group host' },
             ].map((t, i) => (
               <div key={i} className="flap-card p-4 flex items-center gap-3">
                 <div className="w-14 h-14 rounded-2xl overflow-hidden border-2 border-[var(--ink)] shrink-0" style={{ background: t.bg }}>
@@ -404,7 +399,7 @@ export default function Landing() {
                 <img alt="Friends sharing a plan" className="w-full h-full object-cover" src="https://images.pexels.com/photos/9943265/pexels-photo-9943265.jpeg?auto=compress&cs=tinysrgb&w=900&q=80" loading="lazy" />
               </div>
               <div className="bubble mt-6">
-                <p className="font-display italic text-base leading-snug">"I paid for the stay. BillBuddy remembers the rest."</p>
+                <p className="font-display italic text-base leading-snug">"I paid for the stay. BillBuddy split it four ways — done."</p>
                 <div className="mt-2 text-xs font-semibold tracking-wider uppercase">Maya · paid</div>
               </div>
             </div>
@@ -414,7 +409,7 @@ export default function Landing() {
                 <img alt="Friends planning a trip" className="w-full h-full object-cover" src="https://images.pexels.com/photos/2981109/pexels-photo-2981109.jpeg?auto=compress&cs=tinysrgb&w=900&q=80" loading="lazy" />
               </div>
               <div className="bubble right mt-6 ml-12">
-                <p className="font-display italic text-base leading-snug">"I can see my share before I even ask."</p>
+                <p className="font-display italic text-base leading-snug">"I can see my share before I even ask. No awkward texts."</p>
                 <div className="mt-2 text-xs font-semibold tracking-wider uppercase">Riya · owes ₹620</div>
               </div>
             </div>
@@ -424,7 +419,7 @@ export default function Landing() {
                 <img alt="Friends exchanging a card" className="w-full h-full object-cover" src="https://images.pexels.com/photos/7820357/pexels-photo-7820357.jpeg?auto=compress&cs=tinysrgb&w=900&q=80" loading="lazy" />
               </div>
               <div className="bubble mt-6">
-                <p className="font-display italic text-base leading-snug">"The awkward math finally has a finish line."</p>
+                <p className="font-display italic text-base leading-snug">"Settled 5 people in 2 taps. No Excel needed."</p>
                 <div className="mt-2 text-xs font-semibold tracking-wider uppercase">Kabir · settled</div>
               </div>
             </div>
@@ -434,7 +429,7 @@ export default function Landing() {
                 <img alt="Phone and expense planning" className="w-full h-full object-cover" src="https://images.pexels.com/photos/8970670/pexels-photo-8970670.jpeg?auto=compress&cs=tinysrgb&w=900&q=80" loading="lazy" />
               </div>
               <div className="bubble right mt-6 ml-10">
-                <p className="font-display italic text-base leading-snug">"One receipt in. Five clean balances out."</p>
+                <p className="font-display italic text-base leading-snug">"One receipt in. Everyone knew their share instantly."</p>
                 <div className="mt-2 text-xs font-semibold tracking-wider uppercase">Neha · organizer</div>
               </div>
             </div>
@@ -444,8 +439,8 @@ export default function Landing() {
                 <img alt="Shared dinner" className="w-full h-full object-cover" src="https://images.pexels.com/photos/6327601/pexels-photo-6327601.jpeg?auto=compress&cs=tinysrgb&w=900&q=80" loading="lazy" />
               </div>
               <div className="bubble mt-6">
-                <p className="font-display italic text-base leading-snug">"Fair doesn't have to mean fragile."</p>
-                <div className="mt-2 text-xs font-semibold tracking-wider uppercase">Dev · group host</div>
+                <p className="font-display italic text-base leading-snug">"No one chases anyone. BillBuddy does the math."</p>
+                <div className="mt-2 text-xs font-semibold tracking-wider uppercase">Arjun · group host</div>
               </div>
             </div>
             {/* Center star */}
@@ -523,7 +518,7 @@ export default function Landing() {
                   <i className="ti ti-arrows-shuffle text-lg" />
                   Optimize settlement
                 </button>
-                <button className="px-5 md:px-6 py-3 font-medium border-2 border-[var(--cream)] rounded-full text-[var(--cream)] hover:bg-[var(--cream)] hover:text-[var(--ink)] transition-colors">
+                <button onClick={handleGetStarted} className="px-5 md:px-6 py-3 font-medium border-2 border-[var(--cream)] rounded-full text-[var(--cream)] hover:bg-[var(--cream)] hover:text-[var(--ink)] transition-colors">
                   View receipt
                 </button>
               </div>
@@ -678,64 +673,17 @@ export default function Landing() {
       <footer className="relative paper-ink text-[var(--cream)] pt-16 md:pt-20 pb-8 md:pb-10 px-6 md:px-8 mt-2">
         <div className="absolute -top-5 left-0 right-0 h-5 paper-ink scallop-top" />
         <div className="absolute inset-0 grain opacity-40" />
-        <div className="max-w-[1280px] mx-auto relative">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-8 pb-8 md:pb-12">
-            <div className="lg:col-span-4">
-              <div className="flex items-center gap-3 mb-5">
-                <div className="w-12 h-12 rounded-full bg-[var(--cream)] flex items-center justify-center">
-                  <span className="font-display text-2xl italic font-bold text-[var(--ink)]">B</span>
-                </div>
-                <div className="font-display text-2xl font-bold">BillBuddy</div>
-              </div>
-              <p className="font-display italic text-lg leading-snug text-[var(--cream)]/80 max-w-xs">A small, warm ledger for shared dinners, long weekends, and every receipt in between.</p>
-              <div className="mt-6 flex items-center gap-3">
-                <a href="#" className="w-10 h-10 rounded-full border border-[var(--cream)]/50 flex items-center justify-center hover:bg-[var(--cream)]/10 transition-colors"><i className="ti ti-brand-instagram" /></a>
-                <a href="#" className="w-10 h-10 rounded-full border border-[var(--cream)]/50 flex items-center justify-center hover:bg-[var(--cream)]/10 transition-colors"><i className="ti ti-brand-x" /></a>
-                <a href="#" className="w-10 h-10 rounded-full border border-[var(--cream)]/50 flex items-center justify-center hover:bg-[var(--cream)]/10 transition-colors"><i className="ti ti-brand-pinterest" /></a>
-                <a href="#" className="w-10 h-10 rounded-full border border-[var(--cream)]/50 flex items-center justify-center hover:bg-[var(--cream)]/10 transition-colors"><i className="ti ti-rss" /></a>
-              </div>
+        <div className="max-w-[1280px] mx-auto relative text-center">
+          <div className="flex items-center justify-center gap-3 mb-5">
+            <div className="w-12 h-12 rounded-full bg-[var(--cream)] flex items-center justify-center">
+              <span className="font-display text-2xl italic font-bold text-[var(--ink)]">B</span>
             </div>
-            <div className="lg:col-span-2">
-              <div className="text-[11px] tracking-[.3em] uppercase opacity-70 mb-4">Explore</div>
-              <ul className="space-y-2 text-sm">
-                <li><a href="#" className="hover:underline">Dashboard</a></li>
-                <li><a href="#" className="hover:underline">Groups</a></li>
-                <li><a href="#" className="hover:underline">Activity</a></li>
-                <li><a href="#" className="hover:underline">Balances</a></li>
-                <li><a href="#" className="hover:underline">Help center</a></li>
-              </ul>
-            </div>
-            <div className="lg:col-span-2">
-              <div className="text-[11px] tracking-[.3em] uppercase opacity-70 mb-4">Support</div>
-              <ul className="space-y-2 text-sm">
-                <li><a href="#" className="hover:underline">How it works</a></li>
-                <li><a href="#" className="hover:underline">Privacy</a></li>
-                <li><a href="#" className="hover:underline">Security</a></li>
-                <li><a href="#" className="hover:underline">Contact</a></li>
-                <li><a href="#" className="hover:underline">Status</a></li>
-              </ul>
-            </div>
-            <div className="lg:col-span-4">
-              <div className="text-[11px] tracking-[.3em] uppercase opacity-70 mb-4">Send a note</div>
-              <div className="font-display italic text-xl leading-snug">hello@billbuddy.app<br />made for groups, anywhere</div>
-              <div className="mt-4 text-sm opacity-80">support@billbuddy.app · replies within a day</div>
-            </div>
+            <div className="font-display text-2xl font-bold">BillBuddy</div>
           </div>
-          <div className="dotted" style={{ backgroundImage: 'radial-gradient(circle,var(--cream) 1.5px,transparent 1.5px)' }} />
-          <div className="flex flex-col items-center text-center mt-8 md:mt-10 gap-4">
-            <div className="w-14 h-14 rounded-full bg-[var(--cream)] flex items-center justify-center">
-              <span className="font-display text-3xl italic font-bold text-[var(--ink)]">B</span>
-            </div>
-            <nav className="flex flex-wrap items-center justify-center gap-x-6 md:gap-x-8 gap-y-2 text-sm">
-              <a href="#" className="hover:underline">Home</a>
-              <a href="#" className="hover:underline">Groups</a>
-              <a href="#" className="hover:underline">Activity</a>
-              <a href="#" className="hover:underline">Balances</a>
-              <a href="#" className="hover:underline">Help</a>
-              <a href="#" className="hover:underline">Privacy</a>
-              <a href="#" className="hover:underline">Contact</a>
-            </nav>
-            <div className="text-xs opacity-60 mt-3 font-display italic">© 2025 BillBuddy. Shared fairly, settled kindly, remembered lightly.</div>
+          <p className="font-display italic text-lg leading-snug text-[var(--cream)]/80 max-w-md mx-auto">A small, warm ledger for shared dinners, long weekends, and every receipt in between.</p>
+          <div className="dotted mt-6" style={{ backgroundImage: 'radial-gradient(circle,var(--cream) 1.5px,transparent 1.5px)' }} />
+          <div className="mt-6 text-sm opacity-70">
+            Support: <a href="mailto:socialkitai@gmail.com" className="underline hover:opacity-100 transition-opacity">socialkitai@gmail.com</a>
           </div>
         </div>
       </footer>
