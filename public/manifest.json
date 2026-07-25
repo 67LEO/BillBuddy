@@ -1,0 +1,19 @@
+{
+  "name": "BillBuddy - Split Expenses with Friends",
+  "short_name": "BillBuddy",
+  "description": "The easiest way to split bills and share expenses with friends, roommates, and groups. Track who owes what, settle up instantly.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0b0f",
+  "theme_color": "#14b8a6",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["finance", "utilities"]
+}
