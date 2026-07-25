@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
@@ -86,7 +87,7 @@ function ExpenseModal({ group, expense, onClose }) {
     return () => document.body.classList.remove('modal-open');
   }, []);
 
-  return (
+  return createPortal(
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -247,7 +248,8 @@ function ExpenseModal({ group, expense, onClose }) {
           </motion.button>
         </div>
       </motion.div>
-    </motion.div>
+    </motion.div>,
+    document.body
   );
 }
 
