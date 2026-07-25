@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
@@ -11,9 +11,21 @@ const AVATAR_COLORS = [
   'var(--ink)', 'var(--crimson)', 'var(--pumpkin)', 'var(--mint)',
 ];
 
+function useIsMobile(bp = 640) {
+  const [m, setM] = useState(() => typeof window !== 'undefined' && window.innerWidth < bp);
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${bp}px)`);
+    const fn = (e) => setM(e.matches);
+    mq.addEventListener('change', fn);
+    return () => mq.removeEventListener('change', fn);
+  }, [bp]);
+  return m;
+}
+
 function CreateGroupModal({ onClose }) {
   const { dispatch } = useApp();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [groupName, setGroupName] = useState('');
   const [members, setMembers] = useState([{ name: '' }, { name: '' }]);
 
@@ -58,10 +70,10 @@ function CreateGroupModal({ onClose }) {
       onClick={onClose}
     >
       <motion.div
-        initial={{ scale: 0.92, opacity: 0, y: 24 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={{ scale: 0.96, opacity: 0, y: 12 }}
-        transition={{ type: 'spring', damping: 26, stiffness: 300 }}
+        initial={isMobile ? { y: '100%', opacity: 1 } : { scale: 0.92, opacity: 0, y: 24 }}
+        animate={isMobile ? { y: 0, opacity: 1 } : { scale: 1, opacity: 1, y: 0 }}
+        exit={isMobile ? { y: '100%', opacity: 1 } : { scale: 0.96, opacity: 0, y: 12 }}
+        transition={isMobile ? { type: 'spring', damping: 30, stiffness: 300 } : { type: 'spring', damping: 26, stiffness: 300 }}
         onClick={(e) => e.stopPropagation()}
         className="modal-content"
       >

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
@@ -12,9 +12,21 @@ const AVATAR_COLORS = [
   'var(--ink)', 'var(--crimson)', 'var(--pumpkin)', 'var(--mint)',
 ];
 
+function useIsMobile(bp = 640) {
+  const [m, setM] = useState(() => typeof window !== 'undefined' && window.innerWidth < bp);
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${bp}px)`);
+    const fn = (e) => setM(e.matches);
+    mq.addEventListener('change', fn);
+    return () => mq.removeEventListener('change', fn);
+  }, [bp]);
+  return m;
+}
+
 function ExpenseModal({ group, expense, onClose }) {
   const { dispatch } = useApp();
   const isEdit = !!expense;
+  const isMobile = useIsMobile();
   const [payerId, setPayerId] = useState(expense?.payerId || group.members[0]?.id || '');
   const [amount, setAmount] = useState(expense?.amount?.toString() || '');
   const [description, setDescription] = useState(expense?.description || '');
@@ -78,10 +90,10 @@ function ExpenseModal({ group, expense, onClose }) {
       onClick={onClose}
     >
       <motion.div
-        initial={{ scale: 0.95, opacity: 0, y: 20 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={{ scale: 0.95, opacity: 0 }}
-        transition={{ type: 'spring', damping: 26, stiffness: 300 }}
+        initial={isMobile ? { y: '100%', opacity: 1 } : { scale: 0.95, opacity: 0, y: 20 }}
+        animate={isMobile ? { y: 0, opacity: 1 } : { scale: 1, opacity: 1, y: 0 }}
+        exit={isMobile ? { y: '100%', opacity: 1 } : { scale: 0.95, opacity: 0 }}
+        transition={isMobile ? { type: 'spring', damping: 30, stiffness: 300 } : { type: 'spring', damping: 26, stiffness: 300 }}
         onClick={(e) => e.stopPropagation()}
         className="modal-content"
       >
