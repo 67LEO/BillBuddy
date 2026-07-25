@@ -12,13 +12,18 @@ const AVATAR_COLORS = [
   'var(--ink)', 'var(--crimson)', 'var(--pumpkin)', 'var(--mint)',
 ];
 
-function AddExpenseModal({ group, onClose }) {
+function ExpenseModal({ group, expense, onClose }) {
   const { dispatch } = useApp();
-  const [payerId, setPayerId] = useState(group.members[0]?.id || '');
-  const [amount, setAmount] = useState('');
-  const [description, setDescription] = useState('');
-  const [presentMembers, setPresentMembers] = useState(group.members.map((m) => m.id));
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const isEdit = !!expense;
+  const [payerId, setPayerId] = useState(expense?.payerId || group.members[0]?.id || '');
+  const [amount, setAmount] = useState(expense?.amount?.toString() || '');
+  const [description, setDescription] = useState(expense?.description || '');
+  const [presentMembers, setPresentMembers] = useState(expense?.presentMembers || group.members.map((m) => m.id));
+  const [date, setDate] = useState(
+    expense?.date
+      ? new Date(expense.date).toISOString().split('T')[0]
+      : new Date().toISOString().split('T')[0]
+  );
 
   const toggleMember = (id) => {
     setPresentMembers((prev) =>
@@ -29,17 +34,34 @@ function AddExpenseModal({ group, onClose }) {
   const submit = () => {
     const amt = parseFloat(amount);
     if (!amt || amt <= 0 || !payerId || presentMembers.length === 0 || !description.trim()) return;
-    dispatch({
-      type: 'ADD_EXPENSE',
-      payload: {
-        groupId: group.id,
-        payerId,
-        amount: amt,
-        description: description.trim(),
-        presentMembers,
-        date: new Date(date).toISOString(),
-      },
-    });
+
+    if (isEdit) {
+      dispatch({
+        type: 'UPDATE_EXPENSE',
+        payload: {
+          id: expense.id,
+          updates: {
+            payerId,
+            amount: amt,
+            description: description.trim(),
+            presentMembers,
+            date: new Date(date).toISOString(),
+          },
+        },
+      });
+    } else {
+      dispatch({
+        type: 'ADD_EXPENSE',
+        payload: {
+          groupId: group.id,
+          payerId,
+          amount: amt,
+          description: description.trim(),
+          presentMembers,
+          date: new Date(date).toISOString(),
+        },
+      });
+    }
     onClose();
   };
 
@@ -63,9 +85,9 @@ function AddExpenseModal({ group, onClose }) {
         onClick={(e) => e.stopPropagation()}
         className="modal-content"
       >
-        <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center justify-between mb-5 shrink-0">
           <div>
-            <h2 className="text-lg sm:text-xl font-bold text-[var(--ink)] font-display">Naya Expense</h2>
+            <h2 className="text-lg sm:text-xl font-bold text-[var(--ink)] font-display">{isEdit ? 'Expense Edit Karo' : 'Naya Expense'}</h2>
             <p className="text-[var(--ink)]/60 text-xs mt-0.5">Kaun kitna dega — auto-calculate</p>
           </div>
           <button onClick={onClose} className="p-2 rounded-lg text-[var(--ink)]/50 hover:text-[var(--ink)] cursor-pointer">
@@ -73,7 +95,7 @@ function AddExpenseModal({ group, onClose }) {
           </button>
         </div>
 
-        <div className="space-y-4">
+        <div className="modal-body space-y-4">
           {/* Description */}
           <div>
             <label className="label">Kya kharcha hua?</label>
@@ -90,8 +112,8 @@ function AddExpenseModal({ group, onClose }) {
           {/* Amount */}
           <div>
             <label className="label">Kitna paisa?</label>
-            <div className="input-icon-wrap">
-              <span className="input-icon text-[var(--crimson)] font-semibold" style={{ fontSize: '1.0625rem' }}>₹</span>
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--crimson)] font-semibold text-lg pointer-events-none">₹</span>
               <input
                 type="number"
                 value={amount}
@@ -99,6 +121,7 @@ function AddExpenseModal({ group, onClose }) {
                 placeholder="0"
                 min="0"
                 className="input"
+                style={{ paddingLeft: '2.5rem' }}
               />
             </div>
             {perPerson > 0 && (
@@ -115,13 +138,14 @@ function AddExpenseModal({ group, onClose }) {
           {/* Date */}
           <div>
             <label className="label">Kab hua?</label>
-            <div className="input-icon-wrap">
-              <i className="ti ti-calendar input-icon" />
+            <div className="relative">
+              <i className="ti ti-calendar absolute left-4 top-1/2 -translate-y-1/2 text-[var(--ink)]/40 pointer-events-none" />
               <input
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 className="input"
+                style={{ paddingLeft: '2.75rem' }}
               />
             </div>
           </div>
@@ -193,7 +217,7 @@ function AddExpenseModal({ group, onClose }) {
           </div>
         </div>
 
-        <div className="flex gap-3 mt-6">
+        <div className="modal-footer flex gap-3 mt-5">
           <button onClick={onClose} className="btn-secondary flex-1 py-3">Cancel</button>
           <motion.button
             whileHover={{ scale: 1.02 }}
@@ -202,7 +226,7 @@ function AddExpenseModal({ group, onClose }) {
             disabled={!amount || parseFloat(amount) <= 0 || !description.trim() || presentMembers.length === 0}
             className="btn-crimson flex-1 py-3"
           >
-            Add Karo
+            {isEdit ? 'Save Karo' : 'Add Karo'}
           </motion.button>
         </div>
       </motion.div>
@@ -214,7 +238,8 @@ export default function GroupView() {
   const { groupId } = useParams();
   const { state, dispatch } = useApp();
   const navigate = useNavigate();
-  const [showAddExpense, setShowAddExpense] = useState(false);
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [editingExpense, setEditingExpense] = useState(null);
   const [period, setPeriod] = useState('all');
   const [showAddMember, setShowAddMember] = useState(false);
   const [newMemberName, setNewMemberName] = useState('');
@@ -233,7 +258,7 @@ export default function GroupView() {
 
   if (!group) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4 pt-20 sm:pt-24 pb-24 sm:pb-16">
+      <div className="min-h-screen flex items-center justify-center px-4">
         <div className="text-center">
           <h2 className="text-xl text-[var(--ink)] mb-2 font-display">Group nahi mila</h2>
           <button onClick={() => navigate('/dashboard')} className="text-[var(--crimson)] cursor-pointer text-sm">Dashboard pe jao →</button>
@@ -254,6 +279,21 @@ export default function GroupView() {
     });
     setNewMemberName('');
     setShowAddMember(false);
+  };
+
+  const openEditModal = (expense) => {
+    setEditingExpense(expense);
+    setShowExpenseModal(true);
+  };
+
+  const openAddModal = () => {
+    setEditingExpense(null);
+    setShowExpenseModal(true);
+  };
+
+  const closeExpenseModal = () => {
+    setShowExpenseModal(false);
+    setEditingExpense(null);
   };
 
   return (
@@ -282,7 +322,7 @@ export default function GroupView() {
             <motion.button
               whileHover={{ scale: 1.04 }}
               whileTap={{ scale: 0.96 }}
-              onClick={() => setShowAddExpense(true)}
+              onClick={openAddModal}
               className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl text-sm font-medium cursor-pointer btn-crimson"
             >
               <i className="ti ti-plus" />
@@ -444,16 +484,25 @@ export default function GroupView() {
                       </div>
                       <div className="text-right shrink-0">
                         <div className="text-base sm:text-lg font-bold text-[var(--ink)] font-display">{formatCurrency(expense.amount)}</div>
-                        <button
-                          onClick={() => {
-                            if (confirm('Yeh expense delete ho jayega?')) {
-                              dispatch({ type: 'DELETE_EXPENSE', payload: expense.id });
-                            }
-                          }}
-                          className="mt-1 p-1.5 rounded-lg text-[var(--ink)]/30 hover:text-[var(--crimson)] hover:bg-[var(--crimson)]/10 opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
-                        >
-                          <i className="ti ti-trash text-xs" />
-                        </button>
+                        {/* Action buttons — always visible on mobile, hover on desktop */}
+                        <div className="flex items-center justify-end gap-1 mt-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => openEditModal(expense)}
+                            className="p-1.5 rounded-lg text-[var(--ink)]/40 hover:text-[var(--pumpkin)] hover:bg-[var(--pumpkin)]/10 transition-all cursor-pointer"
+                          >
+                            <i className="ti ti-pencil text-xs" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (confirm('Yeh expense delete ho jayega?')) {
+                                dispatch({ type: 'DELETE_EXPENSE', payload: expense.id });
+                              }
+                            }}
+                            className="p-1.5 rounded-lg text-[var(--ink)]/40 hover:text-[var(--crimson)] hover:bg-[var(--crimson)]/10 transition-all cursor-pointer"
+                          >
+                            <i className="ti ti-trash text-xs" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </motion.div>
@@ -465,7 +514,13 @@ export default function GroupView() {
       </motion.div>
 
       <AnimatePresence>
-        {showAddExpense && <AddExpenseModal group={group} onClose={() => setShowAddExpense(false)} />}
+        {showExpenseModal && (
+          <ExpenseModal
+            group={group}
+            expense={editingExpense}
+            onClose={closeExpenseModal}
+          />
+        )}
       </AnimatePresence>
     </div>
   );

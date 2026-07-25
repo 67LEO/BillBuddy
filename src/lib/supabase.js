@@ -150,6 +150,37 @@ export async function addExpenseInDB(groupId, payerId, amount, description, pres
   };
 }
 
+export async function updateExpenseInDB(expenseId, updates) {
+  if (!supabase) throw new Error('Supabase not configured');
+
+  const dbUpdates = {};
+  if (updates.payerId !== undefined) dbUpdates.payer_id = updates.payerId;
+  if (updates.amount !== undefined) dbUpdates.amount = updates.amount;
+  if (updates.description !== undefined) dbUpdates.description = updates.description;
+  if (updates.presentMembers !== undefined) dbUpdates.present_members = updates.presentMembers;
+  if (updates.date !== undefined) dbUpdates.date = updates.date;
+
+  const { data, error } = await supabase
+    .from('expenses')
+    .update(dbUpdates)
+    .eq('id', expenseId)
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  return {
+    id: data.id,
+    groupId: data.group_id,
+    payerId: data.payer_id,
+    amount: Number(data.amount),
+    description: data.description,
+    presentMembers: data.present_members || [],
+    date: data.date,
+    createdAt: data.created_at,
+  };
+}
+
 export async function deleteExpenseFromDB(expenseId) {
   if (!supabase) throw new Error('Supabase not configured');
 

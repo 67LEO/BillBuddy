@@ -65,10 +65,17 @@ function CreateGroupModal({ onClose }) {
         onClick={(e) => e.stopPropagation()}
         className="modal-content"
       >
-        <h2 className="text-xl font-bold text-[var(--ink)] font-display mb-1">Naya Group Banao</h2>
-        <p className="text-[var(--ink)]/60 text-sm mb-5">Naam do aur members add karo</p>
+        <div className="flex items-center justify-between mb-3 shrink-0">
+          <div>
+            <h2 className="text-xl font-bold text-[var(--ink)] font-display">Naya Group Banao</h2>
+            <p className="text-[var(--ink)]/60 text-sm mt-0.5">Naam do aur members add karo</p>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-lg text-[var(--ink)]/50 hover:text-[var(--ink)] cursor-pointer">
+            <i className="ti ti-x text-lg" />
+          </button>
+        </div>
 
-        <div className="space-y-4">
+        <div className="modal-body space-y-4">
           <div>
             <label className="label">Group Name</label>
             <input
@@ -128,7 +135,7 @@ function CreateGroupModal({ onClose }) {
           </div>
         </div>
 
-        <div className="flex gap-3 mt-6">
+        <div className="modal-footer flex gap-3 mt-5">
           <button onClick={onClose} className="btn-secondary flex-1 py-3">Cancel</button>
           <motion.button
             whileHover={{ scale: 1.02 }}
@@ -157,7 +164,7 @@ function GroupCard({ group, index, stats, onClick, onDelete }) {
     >
       <button
         onClick={(e) => { e.stopPropagation(); onDelete(); }}
-        className="absolute top-3 right-3 p-2 rounded-lg text-[var(--ink)]/40 hover:text-[var(--crimson)] hover:bg-[var(--crimson)]/10 opacity-0 group-hover:opacity-100 transition-all cursor-pointer z-10"
+        className="absolute top-3 right-3 p-2 rounded-lg text-[var(--ink)]/40 hover:text-[var(--crimson)] hover:bg-[var(--crimson)]/10 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all cursor-pointer z-10"
       >
         <i className="ti ti-trash text-sm" />
       </button>

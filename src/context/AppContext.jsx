@@ -6,6 +6,7 @@ import {
   deleteGroupFromDB,
   addMemberInDB,
   addExpenseInDB,
+  updateExpenseInDB,
   deleteExpenseFromDB,
 } from '../lib/supabase';
 
@@ -93,6 +94,15 @@ export function AppProvider({ children }) {
           action.payload.date
         );
         setState((prev) => ({ ...prev, expenses: [...prev.expenses, expense] }));
+        break;
+      }
+
+      case 'UPDATE_EXPENSE': {
+        const updated = await updateExpenseInDB(action.payload.id, action.payload.updates);
+        setState((prev) => ({
+          ...prev,
+          expenses: prev.expenses.map((e) => (e.id === updated.id ? updated : e)),
+        }));
         break;
       }
 
