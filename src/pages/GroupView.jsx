@@ -113,6 +113,7 @@ function ExpenseModal({ group, expense, onClose }) {
           </button>
         </div>
 
+        <div className="modal-scroll">
         <div className="modal-body space-y-4">
           {/* Description */}
           <div>
@@ -246,6 +247,7 @@ function ExpenseModal({ group, expense, onClose }) {
           >
             {isEdit ? 'Save Karo' : 'Add Karo'}
           </motion.button>
+        </div>
         </div>
       </motion.div>
     </motion.div>,

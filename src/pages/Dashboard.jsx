@@ -93,6 +93,7 @@ function CreateGroupModal({ onClose }) {
           </button>
         </div>
 
+        <div className="modal-scroll">
         <div className="modal-body space-y-4">
           <div>
             <label className="label">Group Name</label>
@@ -164,6 +165,7 @@ function CreateGroupModal({ onClose }) {
           >
             Group Banao
           </motion.button>
+        </div>
         </div>
       </motion.div>
     </motion.div>,
