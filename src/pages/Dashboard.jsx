@@ -329,6 +329,50 @@ export default function Dashboard() {
           ))}
         </motion.div>
 
+        {/* QUICK BILL CTA */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="mb-8"
+        >
+          <motion.div
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.99 }}
+            onClick={() => navigate('/calculator')}
+            className="flap-card p-4 sm:p-5 cursor-pointer"
+            style={{ background: 'var(--pumpkin)', color: 'var(--ink)', borderColor: 'var(--ink)' }}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center"
+                  style={{ background: 'var(--ink)', color: 'var(--cream)' }}
+                >
+                  <i className="ti ti-calculator text-lg" />
+                </div>
+                <div>
+                  <div className="font-semibold text-sm sm:text-base font-display">Quick Bill Calculator</div>
+                  <div className="text-xs opacity-70">Items add karo, total calculate karo</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {state.bills.length > 0 && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ background: 'var(--ink)', color: 'var(--cream)' }}>
+                    {state.bills.length} saved
+                  </span>
+                )}
+                <div
+                  className="w-8 h-8 rounded-lg flex items-center justify-center"
+                  style={{ background: 'var(--cream)', color: 'var(--ink)' }}
+                >
+                  <i className="ti ti-arrow-right" />
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+
         {/* GROUPS */}
         {state.groups.length === 0 ? (
           <motion.div

@@ -58,7 +58,42 @@ CREATE POLICY "user_can_manage_own_expenses"
     group_id IN (SELECT id FROM groups WHERE user_id = auth.uid())
   );
 
--- 5. Performance indexes
+-- 5. Bills table (Quick Bill Calculator)
+CREATE TABLE IF NOT EXISTS bills (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  title TEXT DEFAULT '',
+  items JSONB NOT NULL DEFAULT '[]',
+  total NUMERIC(12,2) NOT NULL DEFAULT 0,
+  paid_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+  difference NUMERIC(12,2) NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE bills ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "user_can_manage_own_bills"
+  ON bills FOR ALL
+  USING (auth.uid() = user_id);
+
+-- 6. Saved Items (reusable item library)
+CREATE TABLE IF NOT EXISTS saved_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  name TEXT NOT NULL,
+  price NUMERIC(12,2) NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE saved_items ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "user_can_manage_own_saved_items"
+  ON saved_items FOR ALL
+  USING (auth.uid() = user_id);
+
+-- 7. Performance indexes
 CREATE INDEX IF NOT EXISTS idx_groups_user ON groups(user_id);
 CREATE INDEX IF NOT EXISTS idx_members_group ON members(group_id);
 CREATE INDEX IF NOT EXISTS idx_expenses_group ON expenses(group_id);
+CREATE INDEX IF NOT EXISTS idx_bills_user ON bills(user_id);
+CREATE INDEX IF NOT EXISTS idx_saved_items_user ON saved_items(user_id);

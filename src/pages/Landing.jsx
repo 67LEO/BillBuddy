@@ -273,6 +273,98 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* ============ QUICK BILL CALCULATOR ============ */}
+      <section className="relative paper-ink text-[var(--cream)] py-20 md:py-28 px-6 md:px-8 mt-4">
+        <div className="absolute inset-0 grain opacity-50" />
+        <div className="max-w-[1280px] mx-auto relative">
+          <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 md:mb-12 gap-4">
+            <div>
+              <div className="text-[11px] tracking-[.3em] uppercase mb-3 text-[var(--pumpkin)]">New Feature · Quick Bill</div>
+              <h2 className="font-display text-4xl md:text-7xl font-black leading-[0.9]">
+                The bill that
+                <br />
+                <span className="italic-d font-light text-[var(--mint)]">calculates</span>
+                <br />
+                itself.
+              </h2>
+            </div>
+            <div className="max-w-sm md:text-right">
+              <p className="font-display italic text-lg leading-snug text-[var(--cream)]/80">Items save karo, select karo, total auto-calculate — jama ya udhar ek glance mein.</p>
+              <div className="mt-4 flex md:justify-end gap-2">
+                <span className="chip" style={{ background: 'var(--pumpkin)', color: 'var(--ink)', borderColor: 'var(--ink)' }}>saved items</span>
+                <span className="chip" style={{ background: 'var(--cream)', color: 'var(--ink)' }}>auto-calc</span>
+                <span className="chip" style={{ background: 'var(--mint)', color: 'var(--ink)' }}>jama/udhar</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Calculator Mockup */}
+          <div className="relative min-h-[380px] md:h-[480px] grid grid-cols-1 md:grid-cols-2 border-2 border-[var(--ink)] paper overflow-hidden fold-shadow rounded-[40px_60px_40px_60px]">
+            <div className="absolute inset-0 grain" />
+            <div className="spine hidden md:block" />
+
+            {/* Left: Saved Items + Bill */}
+            <div className="relative p-8 md:p-10">
+              <div className="absolute top-6 left-6 text-[10px] tracking-[.3em] uppercase text-[var(--ink)]/50">Step I</div>
+              <div className="mt-10 space-y-5">
+                <div>
+                  <div className="text-[10px] tracking-[.25em] uppercase text-[var(--pumpkin)] mb-2">Saved Items</div>
+                  <div className="flex flex-wrap gap-2">
+                    {['Paneer ₹250', 'Coke ₹40', 'Rice ₹120', 'Naan ₹30'].map((item) => (
+                      <div key={item} className="px-3 py-1.5 rounded-xl border border-[var(--ink)]/20 text-xs text-[var(--ink)]/70" style={{ background: 'var(--cream-2)' }}>
+                        {item}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[10px] tracking-[.25em] uppercase text-[var(--mint)] mb-2">Bill Items</div>
+                  <div className="space-y-2">
+                    {[
+                      { name: 'Paneer', qty: 2, total: '₹500' },
+                      { name: 'Coke', qty: 3, total: '₹120' },
+                      { name: 'Rice', qty: 1, total: '₹120' },
+                    ].map((item) => (
+                      <div key={item.name} className="flex items-center justify-between px-3 py-2 rounded-xl border border-[var(--ink)]/15" style={{ background: 'var(--cream-2)' }}>
+                        <span className="text-sm text-[var(--ink)]">{item.name}</span>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs text-[var(--ink)]/50">x{item.qty}</span>
+                          <span className="text-sm font-mono font-semibold text-[var(--pumpkin)]">{item.total}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right: Total + Paid + Result */}
+            <div className="relative p-8 md:p-10 hidden md:flex flex-col justify-center">
+              <div className="absolute top-6 right-6 text-[10px] tracking-[.3em] uppercase text-[var(--ink)]/50">Step II</div>
+              <div className="space-y-5 mt-6">
+                <div className="flex items-center justify-between pb-3 border-b border-[var(--ink)]/15">
+                  <span className="text-sm text-[var(--ink)]/60">Total Bill</span>
+                  <span className="text-2xl font-bold font-display text-[var(--ink)]">₹720</span>
+                </div>
+                <div className="flex items-center justify-between pb-3 border-b border-[var(--ink)]/15">
+                  <span className="text-sm text-[var(--ink)]/60">Paid Amount</span>
+                  <span className="text-2xl font-bold font-display text-[var(--ink)]">₹800</span>
+                </div>
+                <div className="text-center py-5 rounded-2xl border-2 border-[var(--mint)]" style={{ background: 'rgba(168,214,184,0.15)' }}>
+                  <div className="text-[10px] tracking-[.25em] uppercase text-[var(--ink)]/60 mb-1">BACHA HUA</div>
+                  <div className="text-4xl font-black font-display text-[var(--mint)]">+₹80</div>
+                  <div className="text-xs text-[var(--ink)]/50 mt-1">Paisa bach gaya — jama!</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="absolute bottom-6 right-8 text-[11px] tracking-[.25em] uppercase text-[var(--ink)]/30">
+              <div className="font-display text-3xl not-italic text-right">003</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ============ SETTLEMENT FLOW ============ */}
       <section id="settlement" className="relative paper-mint torn-top torn-bottom py-20 md:py-28 px-6 md:px-8 mt-4">
         <div className="absolute inset-0 grain" />

@@ -9,6 +9,7 @@ import Dashboard from './pages/Dashboard';
 import GroupView from './pages/GroupView';
 import Settlement from './pages/Settlement';
 import Analytics from './pages/Analytics';
+import Calculator from './pages/Calculator';
 import NotFound from './pages/NotFound';
 import './index.css';
 
@@ -169,6 +170,7 @@ function AnimatedRoutes() {
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/calculator" element={<ProtectedRoute><Calculator /></ProtectedRoute>} />
         <Route path="/group/:groupId" element={<ProtectedRoute><GroupView /></ProtectedRoute>} />
         <Route path="/settlement/:groupId" element={<ProtectedRoute><Settlement /></ProtectedRoute>} />
         <Route path="/analytics/:groupId" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />

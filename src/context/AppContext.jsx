@@ -8,6 +8,13 @@ import {
   addExpenseInDB,
   updateExpenseInDB,
   deleteExpenseFromDB,
+  fetchBills,
+  addBillInDB,
+  updateBillInDB,
+  deleteBillFromDB,
+  fetchSavedItems,
+  addSavedItemInDB,
+  deleteSavedItemFromDB,
 } from '../lib/supabase';
 
 const AppContext = createContext(null);
@@ -15,6 +22,8 @@ const AppContext = createContext(null);
 const initialState = {
   groups: [],
   expenses: [],
+  bills: [],
+  savedItems: [],
   activeGroupId: null,
 };
 
@@ -36,13 +45,19 @@ export function AppProvider({ children }) {
     let cancelled = false;
     setLoading(true);
 
-    fetchAllData(user.id)
-      .then((data) => {
+    Promise.all([
+      fetchAllData(user.id),
+      fetchBills(user.id),
+      fetchSavedItems(user.id),
+    ])
+      .then(([data, bills, savedItems]) => {
         if (!cancelled) {
           setState((prev) => ({
             ...prev,
             groups: data.groups,
             expenses: data.expenses,
+            bills,
+            savedItems,
           }));
           setLoading(false);
         }
@@ -126,6 +141,54 @@ export function AppProvider({ children }) {
               ? { ...g, members: [...g.members, member] }
               : g
           ),
+        }));
+        break;
+      }
+
+      case 'ADD_BILL': {
+        if (!user) throw new Error('Not authenticated');
+        const bill = await addBillInDB(
+          user.id,
+          action.payload.title,
+          action.payload.items,
+          action.payload.total,
+          action.payload.paidAmount,
+          action.payload.difference
+        );
+        setState((prev) => ({ ...prev, bills: [bill, ...prev.bills] }));
+        break;
+      }
+
+      case 'DELETE_BILL': {
+        await deleteBillFromDB(action.payload);
+        setState((prev) => ({
+          ...prev,
+          bills: prev.bills.filter((b) => b.id !== action.payload),
+        }));
+        break;
+      }
+
+      case 'UPDATE_BILL': {
+        const updatedBill = await updateBillInDB(action.payload.id, action.payload.updates);
+        setState((prev) => ({
+          ...prev,
+          bills: prev.bills.map((b) => (b.id === updatedBill.id ? updatedBill : b)),
+        }));
+        break;
+      }
+
+      case 'ADD_SAVED_ITEM': {
+        if (!user) throw new Error('Not authenticated');
+        const savedItem = await addSavedItemInDB(user.id, action.payload.name, action.payload.price);
+        setState((prev) => ({ ...prev, savedItems: [savedItem, ...prev.savedItems] }));
+        break;
+      }
+
+      case 'DELETE_SAVED_ITEM': {
+        await deleteSavedItemFromDB(action.payload);
+        setState((prev) => ({
+          ...prev,
+          savedItems: prev.savedItems.filter((s) => s.id !== action.payload),
         }));
         break;
       }

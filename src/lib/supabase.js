@@ -208,3 +208,139 @@ export async function deleteExpenseFromDB(expenseId) {
   const { error } = await supabase.from('expenses').delete().eq('id', expenseId);
   if (error) throw error;
 }
+
+// ============================================
+// BILLS (Quick Bill Calculator)
+// ============================================
+
+export async function fetchBills(userId) {
+  if (!supabase || !userId) return [];
+
+  const { data, error } = await supabase
+    .from('bills')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+
+  return (data || []).map((b) => ({
+    id: b.id,
+    title: b.title || '',
+    items: b.items || [],
+    total: Number(b.total),
+    paidAmount: Number(b.paid_amount),
+    difference: Number(b.difference),
+    createdAt: b.created_at,
+  }));
+}
+
+export async function addBillInDB(userId, title, items, total, paidAmount, difference) {
+  if (!supabase) throw new Error('Supabase not configured');
+
+  const { data, error } = await supabase
+    .from('bills')
+    .insert({
+      user_id: userId,
+      title: title || '',
+      items,
+      total,
+      paid_amount: paidAmount,
+      difference,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  return {
+    id: data.id,
+    title: data.title || '',
+    items: data.items || [],
+    total: Number(data.total),
+    paidAmount: Number(data.paid_amount),
+    difference: Number(data.difference),
+    createdAt: data.created_at,
+  };
+}
+
+export async function deleteBillFromDB(billId) {
+  if (!supabase) throw new Error('Supabase not configured');
+
+  const { error } = await supabase.from('bills').delete().eq('id', billId);
+  if (error) throw error;
+}
+
+export async function updateBillInDB(billId, updates) {
+  if (!supabase) throw new Error('Supabase not configured');
+
+  const dbUpdates = {};
+  if (updates.title !== undefined) dbUpdates.title = updates.title;
+  if (updates.items !== undefined) dbUpdates.items = updates.items;
+  if (updates.total !== undefined) dbUpdates.total = updates.total;
+  if (updates.paidAmount !== undefined) dbUpdates.paid_amount = updates.paidAmount;
+  if (updates.difference !== undefined) dbUpdates.difference = updates.difference;
+
+  const { data, error } = await supabase
+    .from('bills')
+    .update(dbUpdates)
+    .eq('id', billId)
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  return {
+    id: data.id,
+    title: data.title || '',
+    items: data.items || [],
+    total: Number(data.total),
+    paidAmount: Number(data.paid_amount),
+    difference: Number(data.difference),
+    createdAt: data.created_at,
+  };
+}
+
+// ============================================
+// SAVED ITEMS (reusable item library)
+// ============================================
+
+export async function fetchSavedItems(userId) {
+  if (!supabase || !userId) return [];
+
+  const { data, error } = await supabase
+    .from('saved_items')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+
+  return (data || []).map((s) => ({
+    id: s.id,
+    name: s.name,
+    price: Number(s.price),
+    createdAt: s.created_at,
+  }));
+}
+
+export async function addSavedItemInDB(userId, name, price) {
+  if (!supabase) throw new Error('Supabase not configured');
+
+  const { data, error } = await supabase
+    .from('saved_items')
+    .insert({ user_id: userId, name, price })
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  return { id: data.id, name: data.name, price: Number(data.price), createdAt: data.created_at };
+}
+
+export async function deleteSavedItemFromDB(itemId) {
+  if (!supabase) throw new Error('Supabase not configured');
+
+  const { error } = await supabase.from('saved_items').delete().eq('id', itemId);
+  if (error) throw error;
+}
