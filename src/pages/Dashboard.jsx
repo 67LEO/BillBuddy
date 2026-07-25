@@ -61,6 +61,11 @@ function CreateGroupModal({ onClose }) {
     navigate('/dashboard');
   };
 
+  useEffect(() => {
+    document.body.classList.add('modal-open');
+    return () => document.body.classList.remove('modal-open');
+  }, []);
+
   return (
     <motion.div
       initial={{ opacity: 0 }}

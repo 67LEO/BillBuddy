@@ -81,6 +81,11 @@ function ExpenseModal({ group, expense, onClose }) {
     ? (parseFloat(amount) / presentMembers.length)
     : 0;
 
+  useEffect(() => {
+    document.body.classList.add('modal-open');
+    return () => document.body.classList.remove('modal-open');
+  }, []);
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
