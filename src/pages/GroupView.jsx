@@ -93,7 +93,7 @@ function ExpenseModal({ group, expense, onClose }) {
         initial={isMobile ? { y: '100%', opacity: 1 } : { scale: 0.95, opacity: 0, y: 20 }}
         animate={isMobile ? { y: 0, opacity: 1 } : { scale: 1, opacity: 1, y: 0 }}
         exit={isMobile ? { y: '100%', opacity: 1 } : { scale: 0.95, opacity: 0 }}
-        transition={isMobile ? { type: 'spring', damping: 30, stiffness: 300 } : { type: 'spring', damping: 26, stiffness: 300 }}
+        transition={isMobile ? { type: 'tween', duration: 0.3, ease: [0.32, 0.72, 0, 1] } : { type: 'spring', damping: 26, stiffness: 300 }}
         onClick={(e) => e.stopPropagation()}
         className="modal-content"
       >
