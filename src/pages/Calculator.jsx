@@ -216,7 +216,7 @@ export default function Calculator() {
             </label>
             <button
               onClick={() => setShowAddSavedItem(!showAddSavedItem)}
-              className="text-xs text-[var(--crimson)] hover:text-[var(--pumpkin)] flex items-center gap-1 cursor-pointer"
+              className="btn-secondary text-xs py-1.5 px-3"
             >
               <i className="ti ti-plus text-sm" /> Naya Item
             </button>
