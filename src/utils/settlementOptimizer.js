@@ -68,9 +68,16 @@ export function getMemberExpenseSummary(expenses, members) {
       .filter((e) => e.payerId === member.id)
       .reduce((sum, e) => sum + e.amount, 0);
     const involved = expenses.filter((e) =>
-      e.presentMembers.includes(member.id)
+      e.presentMembers.includes(member.id) ||
+      (e.splitDetails && e.splitDetails[member.id] > 0)
     );
     const owes = involved.reduce((sum, e) => {
+      const isCustom = e.splitMode === 'custom' && e.splitDetails;
+      if (isCustom) {
+        const totalQty = Object.values(e.splitDetails).reduce((s, qty) => s + (qty || 0), 0);
+        const memberQty = e.splitDetails[member.id] || 0;
+        return totalQty > 0 ? sum + (memberQty / totalQty) * e.amount : sum;
+      }
       return sum + e.amount / e.presentMembers.length;
     }, 0);
     return {

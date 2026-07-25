@@ -31,12 +31,20 @@ function ExpenseModal({ group, expense, onClose }) {
   const [payerId, setPayerId] = useState(expense?.payerId || group.members[0]?.id || '');
   const [amount, setAmount] = useState(expense?.amount?.toString() || '');
   const [description, setDescription] = useState(expense?.description || '');
-  const [presentMembers, setPresentMembers] = useState(expense?.presentMembers || group.members.map((m) => m.id));
   const [date, setDate] = useState(
     expense?.date
       ? new Date(expense.date).toISOString().split('T')[0]
       : new Date().toISOString().split('T')[0]
   );
+
+  const [splitMode, setSplitMode] = useState(expense?.splitMode || 'equal');
+  const [presentMembers, setPresentMembers] = useState(expense?.presentMembers || group.members.map((m) => m.id));
+  const [customQuantities, setCustomQuantities] = useState(() => {
+    if (expense?.splitDetails) return { ...expense.splitDetails };
+    const init = {};
+    group.members.forEach((m) => { init[m.id] = 1; });
+    return init;
+  });
 
   const toggleMember = (id) => {
     setPresentMembers((prev) =>
@@ -44,43 +52,94 @@ function ExpenseModal({ group, expense, onClose }) {
     );
   };
 
-  const submit = () => {
-    const amt = parseFloat(amount);
-    if (!amt || amt <= 0 || !payerId || presentMembers.length === 0 || !description.trim()) return;
+  const updateQuantity = (id, val) => {
+    const num = Math.max(0, parseInt(val) || 0);
+    setCustomQuantities((prev) => ({ ...prev, [id]: num }));
+  };
 
-    if (isEdit) {
-      dispatch({
-        type: 'UPDATE_EXPENSE',
-        payload: {
-          id: expense.id,
-          updates: {
+  const totalCustomQty = Object.values(customQuantities).reduce((sum, q) => sum + q, 0);
+  const amt = parseFloat(amount) || 0;
+
+  const submit = () => {
+    if (!amt || amt <= 0 || !payerId || !description.trim()) return;
+
+    if (splitMode === 'custom') {
+      const membersWithQty = Object.entries(customQuantities).filter(([, q]) => q > 0);
+      if (membersWithQty.length === 0) return;
+      const customPresent = membersWithQty.map(([id]) => id);
+      if (isEdit) {
+        dispatch({
+          type: 'UPDATE_EXPENSE',
+          payload: {
+            id: expense.id,
+            updates: {
+              payerId,
+              amount: amt,
+              description: description.trim(),
+              presentMembers: customPresent,
+              splitDetails: { ...customQuantities },
+              splitMode: 'custom',
+              date: new Date(date).toISOString(),
+            },
+          },
+        });
+      } else {
+        dispatch({
+          type: 'ADD_EXPENSE',
+          payload: {
+            groupId: group.id,
+            payerId,
+            amount: amt,
+            description: description.trim(),
+            presentMembers: customPresent,
+            splitDetails: { ...customQuantities },
+            splitMode: 'custom',
+            date: new Date(date).toISOString(),
+          },
+        });
+      }
+    } else {
+      if (presentMembers.length === 0) return;
+      if (isEdit) {
+        dispatch({
+          type: 'UPDATE_EXPENSE',
+          payload: {
+            id: expense.id,
+            updates: {
+              payerId,
+              amount: amt,
+              description: description.trim(),
+              presentMembers,
+              splitDetails: null,
+              splitMode: 'equal',
+              date: new Date(date).toISOString(),
+            },
+          },
+        });
+      } else {
+        dispatch({
+          type: 'ADD_EXPENSE',
+          payload: {
+            groupId: group.id,
             payerId,
             amount: amt,
             description: description.trim(),
             presentMembers,
+            splitDetails: null,
+            splitMode: 'equal',
             date: new Date(date).toISOString(),
           },
-        },
-      });
-    } else {
-      dispatch({
-        type: 'ADD_EXPENSE',
-        payload: {
-          groupId: group.id,
-          payerId,
-          amount: amt,
-          description: description.trim(),
-          presentMembers,
-          date: new Date(date).toISOString(),
-        },
-      });
+        });
+      }
     }
     onClose();
   };
 
-  const perPerson = presentMembers.length > 0 && amount
-    ? (parseFloat(amount) / presentMembers.length)
-    : 0;
+  const perPersonEqual = presentMembers.length > 0 && amt ? amt / presentMembers.length : 0;
+
+  const isValid = splitMode === 'custom'
+    ? amt > 0 && totalCustomQty > 0 && description.trim()
+    : amt > 0 && presentMembers.length > 0 && description.trim();
 
   useEffect(() => {
     document.body.classList.add('modal-open');
@@ -122,7 +181,7 @@ function ExpenseModal({ group, expense, onClose }) {
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Dinner, Movie, Groceries..."
+              placeholder="Dinner, Movie, Tiffins..."
               className="input"
               autoFocus
             />
@@ -143,13 +202,13 @@ function ExpenseModal({ group, expense, onClose }) {
                 style={{ paddingLeft: '2.5rem' }}
               />
             </div>
-            {perPerson > 0 && (
+            {splitMode === 'equal' && perPersonEqual > 0 && (
               <motion.p
                 initial={{ opacity: 0, y: -4 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="text-xs text-[var(--pumpkin)] mt-2"
               >
-                {presentMembers.length} logon me divide = {formatCurrency(perPerson)} / each
+                {presentMembers.length} logon me divide = {formatCurrency(perPersonEqual)} / each
               </motion.p>
             )}
           </div>
@@ -195,45 +254,153 @@ function ExpenseModal({ group, expense, onClose }) {
             </div>
           </div>
 
-          {/* Present Members */}
+          {/* SPLIT MODE TOGGLE */}
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <label className="label" style={{ marginBottom: 0 }}>Kaun kaun tha maujud?</label>
+            <label className="label">Split Kaise Hoga?</label>
+            <div className="flex rounded-xl overflow-hidden border-2 border-[var(--ink)]" style={{ background: 'rgba(58,44,92,0.04)' }}>
               <button
-                onClick={() => setPresentMembers(
-                  presentMembers.length === group.members.length ? [] : group.members.map((m) => m.id)
-                )}
-                className="text-xs text-[var(--pumpkin)] hover:text-[var(--crimson)] cursor-pointer"
+                onClick={() => setSplitMode('equal')}
+                className="flex-1 py-2.5 text-sm font-semibold transition-all cursor-pointer"
+                style={{
+                  background: splitMode === 'equal' ? 'var(--ink)' : 'transparent',
+                  color: splitMode === 'equal' ? 'var(--cream)' : 'var(--ink)',
+                }}
               >
-                {presentMembers.length === group.members.length ? 'Deselect All' : 'Select All'}
+                <i className="ti ti-equal mr-1" /> Equal Split
+              </button>
+              <button
+                onClick={() => setSplitMode('custom')}
+                className="flex-1 py-2.5 text-sm font-semibold transition-all cursor-pointer"
+                style={{
+                  background: splitMode === 'custom' ? 'var(--ink)' : 'transparent',
+                  color: splitMode === 'custom' ? 'var(--cream)' : 'var(--ink)',
+                }}
+              >
+                <i className="ti ti-calculator mr-1" /> Custom Split
               </button>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {group.members.map((m) => {
-                const present = presentMembers.includes(m.id);
-                return (
-                  <motion.button
-                    key={m.id}
-                    whileTap={{ scale: 0.96 }}
-                    onClick={() => toggleMember(m.id)}
-                    className="flex items-center gap-2 px-3 py-2.5 rounded-xl border-2 text-sm transition-all cursor-pointer"
-                    style={{
-                      borderColor: present ? 'var(--mint)' : 'rgba(58,44,92,0.12)',
-                      color: present ? 'var(--ink)' : 'var(--ink)',
-                      background: present ? 'rgba(168,214,184,0.15)' : 'transparent',
-                      opacity: present ? 1 : 0.5,
-                    }}
-                  >
-                    <div className="avatar-solid" style={{ width: 24, height: 24, background: m.color, fontSize: 9 }}>
-                      <span className="text-[var(--cream)]">{m.name[0].toUpperCase()}</span>
-                    </div>
-                    <span className="truncate">{m.name}</span>
-                    {present && <i className="ti ti-check ml-auto text-[var(--mint)] shrink-0" />}
-                  </motion.button>
-                );
-              })}
-            </div>
           </div>
+
+          {/* EQUAL SPLIT: Present Members */}
+          {splitMode === 'equal' && (
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <label className="label" style={{ marginBottom: 0 }}>Kaun kaun tha maujud?</label>
+                <button
+                  onClick={() => setPresentMembers(
+                    presentMembers.length === group.members.length ? [] : group.members.map((m) => m.id)
+                  )}
+                  className="text-xs text-[var(--pumpkin)] hover:text-[var(--crimson)] cursor-pointer"
+                >
+                  {presentMembers.length === group.members.length ? 'Deselect All' : 'Select All'}
+                </button>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {group.members.map((m) => {
+                  const present = presentMembers.includes(m.id);
+                  return (
+                    <motion.button
+                      key={m.id}
+                      whileTap={{ scale: 0.96 }}
+                      onClick={() => toggleMember(m.id)}
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl border-2 text-sm transition-all cursor-pointer"
+                      style={{
+                        borderColor: present ? 'var(--mint)' : 'rgba(58,44,92,0.12)',
+                        color: present ? 'var(--ink)' : 'var(--ink)',
+                        background: present ? 'rgba(168,214,184,0.15)' : 'transparent',
+                        opacity: present ? 1 : 0.5,
+                      }}
+                    >
+                      <div className="avatar-solid" style={{ width: 24, height: 24, background: m.color, fontSize: 9 }}>
+                        <span className="text-[var(--cream)]">{m.name[0].toUpperCase()}</span>
+                      </div>
+                      <span className="truncate">{m.name}</span>
+                      {present && <i className="ti ti-check ml-auto text-[var(--mint)] shrink-0" />}
+                    </motion.button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* CUSTOM SPLIT: Quantity/Ratio Inputs */}
+          {splitMode === 'custom' && (
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <label className="label" style={{ marginBottom: 0 }}>Kitna - Kitne logon ne liya?</label>
+                <span className="text-xs text-[var(--ink)]/50 font-medium">
+                  Total: {totalCustomQty}
+                </span>
+              </div>
+              <div className="space-y-2">
+                {group.members.map((m, i) => {
+                  const qty = customQuantities[m.id] || 0;
+                  const share = totalCustomQty > 0 ? (qty / totalCustomQty) * amt : 0;
+                  return (
+                    <motion.div
+                      key={m.id}
+                      initial={{ opacity: 0, x: -12 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.04 }}
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl"
+                      style={{
+                        background: qty > 0 ? 'rgba(168,214,184,0.1)' : 'transparent',
+                        border: `1.5px solid ${qty > 0 ? 'var(--mint)' : 'rgba(58,44,92,0.08)'}`,
+                      }}
+                    >
+                      <div className="avatar-solid shrink-0" style={{ width: 30, height: 30, background: m.color, fontSize: 10 }}>
+                        <span className="text-[var(--cream)]">{m.name[0].toUpperCase()}</span>
+                      </div>
+                      <span className="text-sm text-[var(--ink)] font-medium flex-1 truncate">{m.name}</span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          onClick={() => updateQuantity(m.id, qty - 1)}
+                          className="w-7 h-7 rounded-lg border-2 border-[var(--ink)]/15 flex items-center justify-center text-[var(--ink)]/60 hover:border-[var(--crimson)] hover:text-[var(--crimson)] transition-all cursor-pointer text-xs font-bold"
+                          disabled={qty <= 0}
+                        >
+                          -
+                        </button>
+                        <input
+                          type="number"
+                          value={qty || ''}
+                          onChange={(e) => updateQuantity(m.id, e.target.value)}
+                          placeholder="0"
+                          min="0"
+                          className="w-14 text-center text-sm font-semibold rounded-lg border-2 border-[var(--ink)]/15 bg-transparent py-1.5 outline-none focus:border-[var(--ink)]/40"
+                        />
+                        <button
+                          onClick={() => updateQuantity(m.id, qty + 1)}
+                          className="w-7 h-7 rounded-lg border-2 border-[var(--ink)]/15 flex items-center justify-center text-[var(--ink)]/60 hover:border-[var(--mint)] hover:text-[var(--ink)] transition-all cursor-pointer text-xs font-bold"
+                        >
+                          +
+                        </button>
+                      </div>
+                      {qty > 0 && amt > 0 && (
+                        <span className="text-xs text-[var(--pumpkin)] font-mono shrink-0 w-16 text-right">
+                          {formatCurrency(share)}
+                        </span>
+                      )}
+                    </motion.div>
+                  );
+                })}
+              </div>
+              {totalCustomQty > 0 && amt > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex items-center justify-between mt-3 px-3 py-2 rounded-xl"
+                  style={{ background: 'rgba(224,130,68,0.1)', border: '1px solid rgba(224,130,68,0.2)' }}
+                >
+                  <span className="text-xs text-[var(--pumpkin)] font-medium">
+                    Per unit: {formatCurrency(amt / totalCustomQty)}
+                  </span>
+                  <span className="text-xs text-[var(--pumpkin)] font-medium">
+                    {totalCustomQty} units total
+                  </span>
+                </motion.div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="modal-footer flex gap-3 mt-5">
@@ -242,7 +409,7 @@ function ExpenseModal({ group, expense, onClose }) {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={submit}
-            disabled={!amount || parseFloat(amount) <= 0 || !description.trim() || presentMembers.length === 0}
+            disabled={!isValid}
             className="btn-crimson flex-1 py-3"
           >
             {isEdit ? 'Save Karo' : 'Add Karo'}
@@ -452,10 +619,29 @@ export default function GroupView() {
             <AnimatePresence>
               {groupExpenses.map((expense, i) => {
                 const payer = group.members.find((m) => m.id === expense.payerId);
-                const perPerson = expense.amount / expense.presentMembers.length;
-                const presentNames = expense.presentMembers
-                  .map((id) => group.members.find((m) => m.id === id)?.name)
-                  .filter(Boolean);
+                const isCustom = expense.splitMode === 'custom' && expense.splitDetails;
+
+                let perPerson = 0;
+                let presentNames = [];
+                let customSplitInfo = [];
+
+                if (isCustom) {
+                  const totalQty = Object.values(expense.splitDetails).reduce((sum, q) => sum + (q || 0), 0);
+                  perPerson = totalQty > 0 ? expense.amount / totalQty : 0;
+                  customSplitInfo = Object.entries(expense.splitDetails)
+                    .filter(([, qty]) => qty > 0)
+                    .map(([id, qty]) => {
+                      const member = group.members.find((m) => m.id === id);
+                      return { name: member?.name || 'Unknown', qty, share: (qty / totalQty) * expense.amount };
+                    });
+                  presentNames = customSplitInfo.map((s) => s.name);
+                } else {
+                  perPerson = expense.amount / expense.presentMembers.length;
+                  presentNames = expense.presentMembers
+                    .map((id) => group.members.find((m) => m.id === id)?.name)
+                    .filter(Boolean);
+                }
+
                 const expenseDate = new Date(expense.date);
                 const isToday = expenseDate.toDateString() === new Date().toDateString();
 
@@ -480,27 +666,50 @@ export default function GroupView() {
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                             <span className="text-[var(--ink)] font-medium text-xs sm:text-sm">{expense.description}</span>
+                            {isCustom && (
+                              <span className="inline-block px-1.5 py-0.5 rounded-full text-[8px] font-bold" style={{ background: 'var(--pumpkin)', color: 'var(--cream)' }}>
+                                CUSTOM
+                              </span>
+                            )}
                             <span className="text-[var(--ink)]/30 text-[10px]">·</span>
                             <span className="text-[var(--ink)]/50 text-[10px] sm:text-xs flex items-center gap-1">
                               <i className="ti ti-clock text-[9px]" />
                               {isToday ? 'Aaj' : expenseDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                             </span>
                           </div>
-                          <div className="text-[10px] sm:text-xs text-[var(--ink)]/50 mt-0.5 sm:mt-1">
-                            <span className="text-[var(--ink)]/70">{payer?.name}</span> ne diya · {presentNames.length} log me split · {formatCurrency(perPerson)}/each
-                          </div>
-                          <div className="flex flex-wrap gap-1 mt-1.5 sm:mt-2">
-                            {presentNames.slice(0, 5).map((name, j) => (
-                              <span key={j} className="inline-block px-2 py-0.5 rounded-full text-[9px] font-medium" style={{ background: 'var(--ink)', color: 'var(--cream)' }}>
-                                {name}
-                              </span>
-                            ))}
-                            {presentNames.length > 5 && (
-                              <span className="inline-block px-2 py-0.5 rounded-full text-[9px]" style={{ background: 'rgba(58,44,92,0.1)', color: 'var(--ink)' }}>
-                                +{presentNames.length - 5}
-                              </span>
-                            )}
-                          </div>
+
+                          {isCustom ? (
+                            <div className="mt-1 sm:mt-1.5">
+                              <div className="text-[10px] sm:text-xs text-[var(--ink)]/50">
+                                <span className="text-[var(--ink)]/70">{payer?.name}</span> ne diya · {formatCurrency(perPerson)}/unit
+                              </div>
+                              <div className="flex flex-wrap gap-1 mt-1.5">
+                                {customSplitInfo.map((s, j) => (
+                                  <span key={j} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-medium" style={{ background: 'var(--ink)', color: 'var(--cream)' }}>
+                                    {s.name}: {s.qty} ({formatCurrency(s.share)})
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="text-[10px] sm:text-xs text-[var(--ink)]/50 mt-0.5 sm:mt-1">
+                                <span className="text-[var(--ink)]/70">{payer?.name}</span> ne diya · {presentNames.length} log me split · {formatCurrency(perPerson)}/each
+                              </div>
+                              <div className="flex flex-wrap gap-1 mt-1.5 sm:mt-2">
+                                {presentNames.slice(0, 5).map((name, j) => (
+                                  <span key={j} className="inline-block px-2 py-0.5 rounded-full text-[9px] font-medium" style={{ background: 'var(--ink)', color: 'var(--cream)' }}>
+                                    {name}
+                                  </span>
+                                ))}
+                                {presentNames.length > 5 && (
+                                  <span className="inline-block px-2 py-0.5 rounded-full text-[9px]" style={{ background: 'rgba(58,44,92,0.1)', color: 'var(--ink)' }}>
+                                    +{presentNames.length - 5}
+                                  </span>
+                                )}
+                              </div>
+                            </>
+                          )}
                         </div>
                       </div>
                       <div className="text-right shrink-0">

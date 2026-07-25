@@ -27,9 +27,15 @@ CREATE TABLE IF NOT EXISTS expenses (
   amount NUMERIC(12,2) NOT NULL,
   description TEXT NOT NULL,
   present_members UUID[] NOT NULL DEFAULT '{}',
+  split_details JSONB DEFAULT NULL,
+  split_mode TEXT DEFAULT 'equal' CHECK (split_mode IN ('equal', 'custom')),
   date TIMESTAMPTZ DEFAULT now(),
   created_at TIMESTAMPTZ DEFAULT now()
 );
+
+-- Migration for existing databases: add split_details & split_mode columns
+-- ALTER TABLE expenses ADD COLUMN IF NOT EXISTS split_details JSONB DEFAULT NULL;
+-- ALTER TABLE expenses ADD COLUMN IF NOT EXISTS split_mode TEXT DEFAULT 'equal' CHECK (split_mode IN ('equal', 'custom'));
 
 -- 4. Row Level Security (har user sirf apna data dekhe)
 ALTER TABLE groups ENABLE ROW LEVEL SECURITY;

@@ -91,7 +91,9 @@ export function AppProvider({ children }) {
           action.payload.amount,
           action.payload.description,
           action.payload.presentMembers,
-          action.payload.date
+          action.payload.date,
+          action.payload.splitDetails || null,
+          action.payload.splitMode || 'equal'
         );
         setState((prev) => ({ ...prev, expenses: [...prev.expenses, expense] }));
         break;

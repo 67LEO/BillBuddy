@@ -63,6 +63,8 @@ export async function fetchAllData(userId) {
     amount: Number(e.amount),
     description: e.description,
     presentMembers: e.present_members || [],
+    splitDetails: e.split_details || null,
+    splitMode: e.split_mode || 'equal',
     date: e.date,
     createdAt: e.created_at,
   }));
@@ -126,19 +128,26 @@ export async function addMemberInDB(groupId, name, color) {
   return { id: data.id, name: data.name, color: data.color };
 }
 
-export async function addExpenseInDB(groupId, payerId, amount, description, presentMembers, date) {
+export async function addExpenseInDB(groupId, payerId, amount, description, presentMembers, date, splitDetails, splitMode) {
   if (!supabase) throw new Error('Supabase not configured');
+
+  const insertData = {
+    group_id: groupId,
+    payer_id: payerId,
+    amount,
+    description,
+    present_members: presentMembers,
+    split_mode: splitMode || 'equal',
+    date: date || new Date().toISOString(),
+  };
+
+  if (splitDetails && splitMode === 'custom') {
+    insertData.split_details = splitDetails;
+  }
 
   const { data, error } = await supabase
     .from('expenses')
-    .insert({
-      group_id: groupId,
-      payer_id: payerId,
-      amount,
-      description,
-      present_members: presentMembers,
-      date: date || new Date().toISOString(),
-    })
+    .insert(insertData)
     .select()
     .single();
 
@@ -151,6 +160,8 @@ export async function addExpenseInDB(groupId, payerId, amount, description, pres
     amount: Number(data.amount),
     description: data.description,
     presentMembers: data.present_members || [],
+    splitDetails: data.split_details || null,
+    splitMode: data.split_mode || 'equal',
     date: data.date,
     createdAt: data.created_at,
   };
@@ -164,6 +175,8 @@ export async function updateExpenseInDB(expenseId, updates) {
   if (updates.amount !== undefined) dbUpdates.amount = updates.amount;
   if (updates.description !== undefined) dbUpdates.description = updates.description;
   if (updates.presentMembers !== undefined) dbUpdates.present_members = updates.presentMembers;
+  if (updates.splitDetails !== undefined) dbUpdates.split_details = updates.splitDetails;
+  if (updates.splitMode !== undefined) dbUpdates.split_mode = updates.splitMode;
   if (updates.date !== undefined) dbUpdates.date = updates.date;
 
   const { data, error } = await supabase
@@ -182,6 +195,8 @@ export async function updateExpenseInDB(expenseId, updates) {
     amount: Number(data.amount),
     description: data.description,
     presentMembers: data.present_members || [],
+    splitDetails: data.split_details || null,
+    splitMode: data.split_mode || 'equal',
     date: data.date,
     createdAt: data.created_at,
   };

@@ -2,6 +2,30 @@ export function calculateSplit(expense, members) {
   const presentCount = expense.presentMembers.length;
   if (presentCount === 0) return [];
 
+  const isCustom = expense.splitMode === 'custom' && expense.splitDetails;
+
+  if (isCustom) {
+    const totalQty = Object.values(expense.splitDetails).reduce((sum, qty) => sum + (qty || 0), 0);
+    if (totalQty === 0) return calculateSplit({ ...expense, splitMode: 'equal' }, members);
+
+    return members.map((member) => {
+      const isPayer = member.id === expense.payerId;
+      const qty = expense.splitDetails[member.id] || 0;
+      const perPersonShare = qty > 0 ? (qty / totalQty) * expense.amount : 0;
+      let balanceChange = 0;
+      if (isPayer) balanceChange += expense.amount;
+      if (qty > 0) balanceChange -= perPersonShare;
+
+      return {
+        memberId: member.id,
+        name: member.name,
+        balanceChange: Math.round(balanceChange * 100) / 100,
+        perPersonShare: Math.round(perPersonShare * 100) / 100,
+        quantity: qty,
+      };
+    });
+  }
+
   const perPerson = expense.amount / presentCount;
 
   return members.map((member) => {
@@ -21,6 +45,7 @@ export function calculateSplit(expense, members) {
       name: member.name,
       balanceChange: Math.round(balanceChange * 100) / 100,
       perPersonShare: isPresent ? Math.round(perPerson * 100) / 100 : 0,
+      quantity: isPresent ? 1 : 0,
     };
   });
 }
@@ -34,17 +59,34 @@ export function calculateAllBalances(expenses, members) {
   expenses.forEach((expense) => {
     const presentCount = expense.presentMembers.length;
     if (presentCount === 0) return;
-    const perPerson = expense.amount / presentCount;
 
-    if (balances[expense.payerId]) {
-      balances[expense.payerId].paid += expense.amount;
-    }
+    const isCustom = expense.splitMode === 'custom' && expense.splitDetails;
 
-    expense.presentMembers.forEach((memberId) => {
-      if (balances[memberId]) {
-        balances[memberId].owes += perPerson;
+    if (isCustom) {
+      const totalQty = Object.values(expense.splitDetails).reduce((sum, qty) => sum + (qty || 0), 0);
+      if (totalQty > 0) {
+        if (balances[expense.payerId]) {
+          balances[expense.payerId].paid += expense.amount;
+        }
+        Object.entries(expense.splitDetails).forEach(([memberId, qty]) => {
+          if (balances[memberId] && qty > 0) {
+            balances[memberId].owes += (qty / totalQty) * expense.amount;
+          }
+        });
       }
-    });
+    } else {
+      const perPerson = expense.amount / presentCount;
+
+      if (balances[expense.payerId]) {
+        balances[expense.payerId].paid += expense.amount;
+      }
+
+      expense.presentMembers.forEach((memberId) => {
+        if (balances[memberId]) {
+          balances[memberId].owes += perPerson;
+        }
+      });
+    }
   });
 
   Object.keys(balances).forEach((id) => {
