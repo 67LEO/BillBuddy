@@ -511,6 +511,7 @@ export async function fetchAccounts(userId) {
     recurringDay: a.recurring_day || null,
     isSettled: a.is_settled || false,
     settledAt: a.settled_at || null,
+    batchItems: a.batch_items || null,
     date: a.date,
     createdAt: a.created_at,
   }));
@@ -533,6 +534,8 @@ export async function addAccountEntryInDB(userId, entry) {
       is_recurring: entry.isRecurring || false,
       recurring_freq: entry.recurringFreq || null,
       recurring_day: entry.recurringDay || null,
+      batch_items: entry.batchItems || null,
+      date: entry.date || new Date().toISOString(),
     })
     .select()
     .single();
@@ -553,6 +556,7 @@ export async function addAccountEntryInDB(userId, entry) {
     recurringDay: data.recurring_day || null,
     isSettled: data.is_settled || false,
     settledAt: data.settled_at || null,
+    batchItems: data.batch_items || null,
     date: data.date,
     createdAt: data.created_at,
   };
@@ -571,6 +575,8 @@ export async function updateAccountEntryInDB(entryId, updates) {
   if (updates.mobile !== undefined) dbUpdates.mobile = updates.mobile;
   if (updates.isSettled !== undefined) dbUpdates.is_settled = updates.isSettled;
   if (updates.settledAt !== undefined) dbUpdates.settled_at = updates.settledAt;
+  if (updates.batchItems !== undefined) dbUpdates.batch_items = updates.batchItems;
+  if (updates.date !== undefined) dbUpdates.date = updates.date;
 
   const { data, error } = await supabase
     .from('accounts')
@@ -595,6 +601,7 @@ export async function updateAccountEntryInDB(entryId, updates) {
     recurringDay: data.recurring_day || null,
     isSettled: data.is_settled || false,
     settledAt: data.settled_at || null,
+    batchItems: data.batch_items || null,
     date: data.date,
     createdAt: data.created_at,
   };

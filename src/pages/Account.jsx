@@ -26,6 +26,8 @@ export default function Account() {
   const [category, setCategory] = useState('general');
   const [note, setNote] = useState('');
   const [editingId, setEditingId] = useState(null);
+  const [entryDate, setEntryDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [batchDate, setBatchDate] = useState(() => new Date().toISOString().split('T')[0]);
 
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('all');
@@ -119,6 +121,7 @@ export default function Account() {
       amount: evaluatedAmount,
       category,
       note: note.trim(),
+      date: new Date(entryDate + 'T12:00:00').toISOString(),
     };
 
     if (editingId) {
@@ -138,15 +141,40 @@ export default function Account() {
     setNote('');
     setEditingId(null);
     setShowSuggestions(false);
+    setEntryDate(new Date().toISOString().split('T')[0]);
+    setBatchItems([]);
+    setBatchPersonName('');
+    setBatchType('diya');
+    setBatchCategory('general');
+    setBatchDate(new Date().toISOString().split('T')[0]);
+    setEntryMode('direct');
   };
 
   const startEdit = (entry) => {
     setEditingId(entry.id);
-    setPersonName(entry.personName);
-    setAmount(entry.amount.toString());
-    setType(entry.type);
-    setCategory(entry.category);
-    setNote(entry.note);
+    const entryDateStr = entry.date ? new Date(entry.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+
+    if (entry.batchItems && entry.batchItems.length > 0) {
+      setEntryMode('batch');
+      setBatchItems(entry.batchItems);
+      setBatchPersonName(entry.personName);
+      setBatchType(entry.type);
+      setBatchCategory(entry.category);
+      setBatchDate(entryDateStr);
+      setPersonName('');
+      setAmount('');
+      setType('diya');
+      setCategory('general');
+      setNote('');
+    } else {
+      setEntryMode('direct');
+      setPersonName(entry.personName);
+      setAmount(entry.amount.toString());
+      setType(entry.type);
+      setCategory(entry.category);
+      setNote(entry.note);
+      setEntryDate(entryDateStr);
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -285,17 +313,23 @@ export default function Account() {
   const saveBatchEntry = () => {
     if (!batchPersonName.trim() || batchItems.length === 0 || batchTotal <= 0) return;
     const itemNames = batchItems.map((i) => i.name).join(', ');
-    dispatch({
-      type: 'ADD_ACCOUNT_ENTRY',
-      payload: {
-        personName: batchPersonName.trim(),
-        type: batchType,
-        amount: batchTotal,
-        category: batchCategory,
-        note: itemNames,
-      },
-    });
-    setBatchItems([]);
+    const cleanItems = batchItems.map((i) => ({ id: i.id, name: i.name, price: i.price, quantity: i.quantity || 1 }));
+    const payload = {
+      personName: batchPersonName.trim(),
+      type: batchType,
+      amount: batchTotal,
+      category: batchCategory,
+      note: itemNames,
+      batchItems: cleanItems,
+      date: new Date(batchDate + 'T12:00:00').toISOString(),
+    };
+
+    if (editingId) {
+      dispatch({ type: 'UPDATE_ACCOUNT_ENTRY', payload: { id: editingId, updates: payload } });
+    } else {
+      dispatch({ type: 'ADD_ACCOUNT_ENTRY', payload: payload });
+    }
+    resetForm();
   };
 
   const startEditSavedItem = (si) => {
@@ -720,6 +754,16 @@ export default function Account() {
           </div>
 
           <div className="mb-4">
+            <label className="label">Kis din ka hai?</label>
+            <input
+              type="date"
+              value={entryDate}
+              onChange={(e) => setEntryDate(e.target.value)}
+              className="input"
+            />
+          </div>
+
+          <div className="mb-4">
             <label className="label">Amount <span className="text-[var(--ink)]/30">(calculation bhi chalega — 500*3, 1000+500)</span></label>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--crimson)] font-semibold text-lg pointer-events-none">₹</span>
@@ -838,6 +882,11 @@ export default function Account() {
             <input type="text" value={batchPersonName} onChange={(e) => setBatchPersonName(e.target.value)} placeholder="Rahul, Neha, Aman..." className="input" />
           </div>
 
+          <div className="mb-3">
+            <label className="label">Kis din ka hai?</label>
+            <input type="date" value={batchDate} onChange={(e) => setBatchDate(e.target.value)} className="input" />
+          </div>
+
           <div className="flex gap-2 mb-3">
             <button onClick={() => setBatchType('diya')} className="flex-1 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer border-2" style={{ background: batchType === 'diya' ? 'var(--mint)' : 'transparent', borderColor: batchType === 'diya' ? 'var(--mint)' : 'rgba(58,44,92,0.12)', color: 'var(--ink)' }}>
               <i className="ti ti-arrow-up-right mr-1" /> Diya
@@ -907,11 +956,11 @@ export default function Account() {
               </div>
 
               <div className="flex gap-3">
-                <button onClick={() => setBatchItems([])} className="btn-secondary flex-1 py-2.5 text-sm">
-                  <i className="ti ti-trash text-sm mr-1" /> Clear
+                <button onClick={resetForm} className="btn-secondary flex-1 py-2.5 text-sm">
+                  <i className="ti ti-x text-sm mr-1" /> {editingId ? 'Cancel' : 'Clear'}
                 </button>
                 <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={saveBatchEntry} disabled={!batchPersonName.trim() || batchItems.length === 0 || batchTotal <= 0} className="btn-crimson flex-1 py-2.5 text-sm">
-                  <i className="ti ti-device-floppy text-base mr-1" /> Save Entry
+                  <i className="ti ti-device-floppy text-base mr-1" /> {editingId ? 'Update Entry' : 'Save Entry'}
                 </motion.button>
               </div>
             </div>
@@ -1137,6 +1186,11 @@ export default function Account() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-semibold text-[var(--ink)]">{entry.personName}</span>
+                            {entry.batchItems && entry.batchItems.length > 0 && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'var(--pumpkin)', color: 'var(--cream)' }}>
+                                <i className="ti ti-list text-[8px] mr-0.5" />{entry.batchItems.length} items
+                              </span>
+                            )}
                             {entry.category && entry.category !== 'general' && (
                               <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'var(--ink)', color: 'var(--cream)' }}>
                                 {entry.category}
@@ -1149,6 +1203,15 @@ export default function Account() {
                           <div className="text-[10px] text-[var(--ink)]/40 mt-0.5">
                             {isToday ? 'Aaj' : entryDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                           </div>
+                          {entry.batchItems && entry.batchItems.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1.5">
+                              {entry.batchItems.map((item, j) => (
+                                <span key={j} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[8px] font-medium" style={{ background: 'var(--ink)', color: 'var(--cream)' }}>
+                                  {item.name} ×{item.quantity || 1} · {formatCurrency((evaluateExpression(item.price) || 0) * (item.quantity || 1))}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </div>
                         <div className="text-right shrink-0">
                           <div

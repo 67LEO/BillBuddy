@@ -140,6 +140,7 @@ CREATE TABLE IF NOT EXISTS accounts (
   recurring_day INTEGER DEFAULT NULL,
   is_settled BOOLEAN DEFAULT false,
   settled_at TIMESTAMPTZ DEFAULT NULL,
+  batch_items JSONB DEFAULT NULL,
   date TIMESTAMPTZ DEFAULT now(),
   created_at TIMESTAMPTZ DEFAULT now()
 );
@@ -231,6 +232,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_shared_groups_unique ON shared_groups(grou
 -- 15. Last edited by tracking on expenses
 ALTER TABLE expenses ADD COLUMN IF NOT EXISTS last_edited_by TEXT DEFAULT '';
 ALTER TABLE expenses ADD COLUMN IF NOT EXISTS last_edited_at TIMESTAMPTZ;
+
+-- 16. Batch items for account entries (item-wise mode)
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS batch_items JSONB DEFAULT NULL;
 
 -- 16. RPC: find groups that have members matching given mobile numbers
 CREATE OR REPLACE FUNCTION find_groups_by_member_mobile(mobile_numbers TEXT[])
