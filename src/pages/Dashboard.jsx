@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -6,6 +6,7 @@ import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { stagger, fadeUp, scaleIn } from '../utils/animations';
 import AnimatedCounter from '../components/AnimatedCounter';
+import { calculateRunningBalances, getAccountStats } from '../utils/accountUtils';
 
 const AVATAR_COLORS = [
   'var(--ink)', 'var(--crimson)', 'var(--pumpkin)', 'var(--mint)',
@@ -28,19 +29,19 @@ function CreateGroupModal({ onClose }) {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [groupName, setGroupName] = useState('');
-  const [members, setMembers] = useState([{ name: '' }, { name: '' }]);
+  const [members, setMembers] = useState([{ name: '', mobile: '' }, { name: '', mobile: '' }]);
 
   const addMember = () => {
-    if (members.length < 20) setMembers([...members, { name: '' }]);
+    if (members.length < 20) setMembers([...members, { name: '', mobile: '' }]);
   };
 
   const removeMember = (idx) => {
     if (members.length > 2) setMembers(members.filter((_, i) => i !== idx));
   };
 
-  const updateMember = (idx, name) => {
+  const updateMember = (idx, field, value) => {
     const updated = [...members];
-    updated[idx] = { name };
+    updated[idx] = { ...updated[idx], [field]: value };
     setMembers(updated);
   };
 
@@ -54,6 +55,7 @@ function CreateGroupModal({ onClose }) {
         name: groupName.trim(),
         members: valid.map((m, i) => ({
           name: m.name.trim(),
+          mobile: m.mobile.trim(),
           color: AVATAR_COLORS[i % AVATAR_COLORS.length],
         })),
       },
@@ -126,14 +128,27 @@ function CreateGroupModal({ onClose }) {
                   >
                     {m.name ? m.name[0].toUpperCase() : (i + 1)}
                   </div>
-                  <input
-                    type="text"
-                    value={m.name}
-                    onChange={(e) => updateMember(i, e.target.value)}
-                    placeholder={`Member ${i + 1}`}
-                    className="input"
-                    onKeyDown={(e) => e.key === 'Enter' && addMember()}
-                  />
+                  <div className="flex-1 flex flex-col sm:flex-row gap-2">
+                    <input
+                      type="text"
+                      value={m.name}
+                      onChange={(e) => updateMember(i, 'name', e.target.value)}
+                      placeholder={`Member ${i + 1}`}
+                      className="input flex-1"
+                      onKeyDown={(e) => e.key === 'Enter' && addMember()}
+                    />
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ink)]/30 text-xs pointer-events-none">+91</span>
+                      <input
+                        type="tel"
+                        value={m.mobile}
+                        onChange={(e) => updateMember(i, 'mobile', e.target.value.replace(/\D/g, '').slice(0, 10))}
+                        placeholder="Mobile"
+                        className="input w-full sm:w-28"
+                        style={{ paddingLeft: '2.8rem' }}
+                      />
+                    </div>
+                  </div>
                   {members.length > 2 && (
                     <button
                       onClick={() => removeMember(i)}
@@ -249,6 +264,8 @@ export default function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [showCreate, setShowCreate] = useState(false);
+  const [unsettleConfirmEntry, setUnsettleConfirmEntry] = useState(null);
+  const [toast, setToast] = useState(null);
 
   const getGroupStats = (groupId) => {
     const expenses = state.expenses.filter((e) => e.groupId === groupId);
@@ -268,6 +285,33 @@ export default function Dashboard() {
     .reduce((s, e) => s + e.amount, 0);
 
   const totalSpent = state.expenses.reduce((s, e) => s + e.amount, 0);
+
+  const accountStats = useMemo(() => getAccountStats(state.accounts), [state.accounts]);
+  const accountBalances = useMemo(() => calculateRunningBalances(state.accounts), [state.accounts]);
+  const pendingPersons = useMemo(() =>
+    Object.values(accountBalances).filter((b) => Math.abs(b.net) > 0.01),
+  [accountBalances]);
+
+  const recentSettled = useMemo(() =>
+    state.accounts
+      .filter((a) => a.isSettled)
+      .sort((a, b) => new Date(b.settledAt || b.date) - new Date(a.settledAt || a.date))
+      .slice(0, 3),
+  [state.accounts]);
+
+  const handleUnsettle = (id) => {
+    const entry = state.accounts.find((a) => a.id === id);
+    if (entry) setUnsettleConfirmEntry(entry);
+  };
+
+  const confirmUnsettle = () => {
+    if (unsettleConfirmEntry) {
+      dispatch({ type: 'UNSETTLE_ACCOUNT_ENTRY', payload: unsettleConfirmEntry.id });
+      setToast({ person: unsettleConfirmEntry.personName, amount: unsettleConfirmEntry.amount });
+      setUnsettleConfirmEntry(null);
+      setTimeout(() => setToast(null), 3000);
+    }
+  };
 
   const statCards = [
     { label: 'Total Groups', value: state.groups.length, numeric: true, color: 'var(--ink)' },
@@ -329,48 +373,183 @@ export default function Dashboard() {
           ))}
         </motion.div>
 
-        {/* QUICK BILL CTA */}
+        {/* QUICK ACTIONS + FEATURE CARDS */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
           className="mb-8"
         >
-          <motion.div
-            whileHover={{ scale: 1.01 }}
-            whileTap={{ scale: 0.99 }}
-            onClick={() => navigate('/calculator')}
-            className="flap-card p-4 sm:p-5 cursor-pointer"
-            style={{ background: 'var(--pumpkin)', color: 'var(--ink)', borderColor: 'var(--ink)' }}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center"
-                  style={{ background: 'var(--ink)', color: 'var(--cream)' }}
-                >
-                  <i className="ti ti-calculator text-lg" />
+          {/* Feature Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+            <motion.div
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.99 }}
+              onClick={() => navigate('/calculator')}
+              className="flap-card p-4 sm:p-5 cursor-pointer"
+              style={{ background: 'var(--pumpkin)', color: 'var(--ink)', borderColor: 'var(--ink)' }}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-10 h-10 rounded-xl flex items-center justify-center"
+                    style={{ background: 'var(--ink)', color: 'var(--cream)' }}
+                  >
+                    <i className="ti ti-calculator text-lg" />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-sm sm:text-base font-display">Quick Bill</div>
+                    <div className="text-xs opacity-70">Items add karo, split karo</div>
+                  </div>
                 </div>
-                <div>
-                  <div className="font-semibold text-sm sm:text-base font-display">Quick Bill Calculator</div>
-                  <div className="text-xs opacity-70">Items add karo, total calculate karo</div>
+                <div className="flex items-center gap-2">
+                  {state.bills.length > 0 && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ background: 'var(--ink)', color: 'var(--cream)' }}>
+                      {state.bills.length}
+                    </span>
+                  )}
+                  <div
+                    className="w-8 h-8 rounded-lg flex items-center justify-center"
+                    style={{ background: 'var(--cream)', color: 'var(--ink)' }}
+                  >
+                    <i className="ti ti-arrow-right" />
+                  </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                {state.bills.length > 0 && (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ background: 'var(--ink)', color: 'var(--cream)' }}>
-                    {state.bills.length} saved
-                  </span>
-                )}
-                <div
-                  className="w-8 h-8 rounded-lg flex items-center justify-center"
-                  style={{ background: 'var(--cream)', color: 'var(--ink)' }}
-                >
-                  <i className="ti ti-arrow-right" />
+            </motion.div>
+
+            <motion.div
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.99 }}
+              onClick={() => navigate('/account')}
+              className="flap-card p-4 sm:p-5 cursor-pointer"
+              style={{ background: 'var(--cream-2)', borderColor: 'var(--ink)' }}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-10 h-10 rounded-xl flex items-center justify-center"
+                    style={{ background: 'var(--ink)', color: 'var(--cream)' }}
+                  >
+                    <i className="ti ti-wallet text-lg" />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-sm sm:text-base font-display">Account</div>
+                    <div className="text-xs opacity-70">Diya / Liya hisab rakhlo</div>
+                  </div>
                 </div>
+                <div className="flex items-center gap-2">
+                  {accountStats.totalEntries > 0 && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ background: 'var(--ink)', color: 'var(--cream)' }}>
+                      {accountStats.totalEntries}
+                    </span>
+                  )}
+                  <div
+                    className="w-8 h-8 rounded-lg flex items-center justify-center"
+                    style={{ background: 'var(--mint)', color: 'var(--ink)' }}
+                  >
+                    <i className="ti ti-arrow-right" />
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+
+          {/* Quick Action Buttons */}
+          <div className="flex gap-2 mb-4">
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={() => navigate('/contacts')}
+              className="flex-1 ink-border rounded-xl py-3 px-3 flex items-center justify-center gap-2 text-sm font-medium text-[var(--ink)] hover:bg-[var(--ink)]/5 transition-colors cursor-pointer"
+              style={{ background: 'var(--cream-2)' }}
+            >
+              <i className="ti ti-notebook text-base" />
+              <span className="hidden sm:inline">Contacts</span>
+              <span className="sm:hidden">📒</span>
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={() => navigate('/profile')}
+              className="flex-1 ink-border rounded-xl py-3 px-3 flex items-center justify-center gap-2 text-sm font-medium text-[var(--ink)] hover:bg-[var(--ink)]/5 transition-colors cursor-pointer"
+              style={{ background: 'var(--cream-2)' }}
+            >
+              <i className="ti ti-user text-base" />
+              <span className="hidden sm:inline">Profile</span>
+              <span className="sm:hidden">👤</span>
+            </motion.button>
+          </div>
+
+          {/* Pending Dues */}
+          {pendingPersons.length > 0 && (
+            <div className="ink-border rounded-2xl p-4" style={{ background: 'var(--cream-2)' }}>
+              <div className="flex items-center gap-2 mb-3">
+                <i className="ti ti-alert-triangle text-[var(--pumpkin)] text-sm" />
+                <span className="text-sm font-semibold text-[var(--ink)]">Pending Dues</span>
+                <span className="text-xs text-[var(--ink)]/40">({pendingPersons.length})</span>
+              </div>
+              <div className="space-y-2">
+                {pendingPersons.slice(0, 3).map((b) => (
+                  <div key={b.name} className="flex items-center justify-between text-sm">
+                    <span className="text-[var(--ink)]">{b.name}</span>
+                    <span className="font-mono font-semibold" style={{ color: b.net > 0 ? 'var(--ink)' : 'var(--crimson)' }}>
+                      {b.net > 0 ? `+₹${b.net.toLocaleString('en-IN')}` : `-₹${Math.abs(b.net).toLocaleString('en-IN')}`}
+                    </span>
+                  </div>
+                ))}
+                {pendingPersons.length > 3 && (
+                  <button
+                    onClick={() => navigate('/account')}
+                    className="text-xs text-[var(--pumpkin)] hover:underline cursor-pointer"
+                  >
+                    +{pendingPersons.length - 3} aur dekho →
+                  </button>
+                )}
               </div>
             </div>
-          </motion.div>
+          )}
+
+          {/* Recent Settlements */}
+          {recentSettled.length > 0 && (
+            <div className="ink-border rounded-2xl p-4" style={{ background: 'rgba(34,197,94,0.04)' }}>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <i className="ti ti-checkup-circle text-[var(--mint)] text-sm" />
+                  <span className="text-sm font-semibold text-[var(--ink)]">Recent Settlements</span>
+                </div>
+                <button onClick={() => navigate('/account/settled-history')} className="text-[10px] text-[var(--pumpkin)] hover:underline cursor-pointer">View All →</button>
+              </div>
+              <div className="space-y-2">
+                {recentSettled.map((entry) => {
+                  const settledDate = entry.settledAt ? new Date(entry.settledAt) : null;
+                  return (
+                    <div key={entry.id} className="flex items-center gap-3">
+                      <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'var(--mint)' }}>
+                        <i className="ti ti-check text-[var(--ink)] text-[10px]" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm text-[var(--ink)]">{entry.personName}</span>
+                        {settledDate && (
+                          <span className="text-[10px] text-[var(--ink)]/40 ml-2">
+                            {settledDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-sm font-mono font-semibold text-[var(--ink)]">₹{entry.amount.toLocaleString('en-IN')}</span>
+                      <button
+                        onClick={() => handleUnsettle(entry.id)}
+                        className="p-1 rounded-lg text-[var(--ink)]/20 hover:text-[var(--pumpkin)] hover:bg-[var(--pumpkin)]/10 transition-all cursor-pointer shrink-0"
+                        title="Undo settle"
+                      >
+                        <i className="ti ti-rotate text-[10px]" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </motion.div>
 
         {/* GROUPS */}
@@ -431,10 +610,132 @@ export default function Dashboard() {
             </AnimatePresence>
           </motion.div>
         )}
+
+        {/* SHARED GROUPS */}
+        {state.sharedGroups.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="mt-8"
+          >
+            <div className="flex items-center gap-2 mb-4">
+              <i className="ti ti-link text-[var(--pumpkin)] text-sm" />
+              <h2 className="text-lg font-bold text-[var(--ink)] font-display">Shared With You</h2>
+              <span className="text-xs text-[var(--ink)]/40">({state.sharedGroups.length})</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+              {state.sharedGroups.map((group, i) => {
+                const expenses = state.sharedExpenses.filter((e) => e.groupId === group.id);
+                const total = expenses.reduce((s, e) => s + e.amount, 0);
+                return (
+                  <motion.div
+                    key={group.id}
+                    initial={{ opacity: 0, y: 24 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.06 }}
+                    onClick={() => {
+                      dispatch({ type: 'SET_ACTIVE_GROUP', payload: group.id });
+                      navigate(`/group/${group.id}`);
+                    }}
+                    className="flap-card cursor-pointer group relative p-4 sm:p-5"
+                    style={{ borderStyle: 'dashed', borderColor: 'var(--pumpkin)' }}
+                  >
+                    <div className="absolute top-3 right-3 px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: 'var(--pumpkin)', color: 'var(--cream)' }}>
+                      <i className="ti ti-link mr-1" />Shared
+                    </div>
+
+                    <div className="avatar-stack mb-3 mt-2">
+                      {group.members.slice(0, 5).map((m) => (
+                        <div key={m.id} className="avatar-solid" style={{ width: 34, height: 34, background: m.color }}>
+                          <span className="text-[var(--cream)]">{m.name[0].toUpperCase()}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <h3 className="text-base font-semibold text-[var(--ink)] mb-1 font-display">{group.name}</h3>
+                    <div className="text-xs text-[var(--ink)]/50 mb-1">{group.members.length} members</div>
+                    <div className="text-[10px] text-[var(--pumpkin)] mb-3">
+                      <i className="ti ti-user mr-1" />{group.sharedBy} ne share kiya
+                    </div>
+
+                    <div className="flex items-center justify-between pt-3 border-t border-[var(--ink)]/10">
+                      <div>
+                        <div className="text-xs text-[var(--ink)]/50">{expenses.length} expenses</div>
+                        <div className="text-lg font-bold text-[var(--ink)] font-display">₹{total.toLocaleString('en-IN')}</div>
+                      </div>
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'var(--pumpkin)', color: 'var(--cream)' }}>
+                        <i className="ti ti-arrow-right group-hover:translate-x-0.5 transition-transform" />
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+
       </motion.div>
 
       <AnimatePresence>
         {showCreate && <CreateGroupModal onClose={() => setShowCreate(false)} />}
+      </AnimatePresence>
+
+      {/* UNSETTLE CONFIRMATION MODAL */}
+      <AnimatePresence>
+        {unsettleConfirmEntry && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }} onClick={() => setUnsettleConfirmEntry(null)}>
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="ink-border rounded-2xl p-5 w-full max-w-xs" style={{ background: 'var(--cream)' }} onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'var(--pumpkin)' }}>
+                  <i className="ti ti-rotate text-[var(--cream)] text-lg" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[var(--ink)]">Entry Wapas Laoge?</h3>
+                  <p className="text-[10px] text-[var(--ink)]/40">Yeh entry phir se active ho jayegi</p>
+                </div>
+              </div>
+              <div className="ink-border rounded-xl p-3 mb-4" style={{ background: 'var(--cream-2)' }}>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-sm font-semibold text-[var(--ink)]">{unsettleConfirmEntry.personName}</span>
+                  <span className="text-sm font-mono font-bold text-[var(--crimson)]">₹{unsettleConfirmEntry.amount.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ background: unsettleConfirmEntry.type === 'diya' ? 'rgba(220,38,38,0.08)' : 'rgba(34,197,94,0.08)', color: unsettleConfirmEntry.type === 'diya' ? 'var(--crimson)' : 'var(--mint)' }}>
+                    {unsettleConfirmEntry.type === 'diya' ? 'Diya (Gave)' : 'Liya (Received)'}
+                  </span>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => setUnsettleConfirmEntry(null)} className="flex-1 btn-secondary py-2.5 text-sm">Cancel</button>
+                <button onClick={confirmUnsettle} className="flex-1 py-2.5 rounded-xl text-sm font-semibold cursor-pointer" style={{ background: 'var(--pumpkin)', color: 'var(--cream)' }}>
+                  Haan, Undo
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* TOAST */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: 40, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 ink-border rounded-2xl px-4 py-3 flex items-center gap-3"
+            style={{ background: 'var(--cream)', boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}
+          >
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'var(--pumpkin)' }}>
+              <i className="ti ti-rotate text-[var(--cream)] text-sm" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-[var(--ink)]">{toast.person} — ₹{toast.amount.toLocaleString('en-IN')} wapas active</p>
+              <p className="text-[10px] text-[var(--ink)]/40">Entry phir se active ho gayi</p>
+            </div>
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   );

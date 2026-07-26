@@ -710,6 +710,12 @@ export default function GroupView() {
                               </div>
                             </>
                           )}
+                          {expense.lastEditedBy && (
+                            <div className="text-[9px] text-[var(--ink)]/30 mt-1.5 flex items-center gap-1">
+                              <i className="ti ti-pencil text-[8px]" />
+                              Last edit: {expense.lastEditedBy}
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div className="text-right shrink-0">

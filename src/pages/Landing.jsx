@@ -365,6 +365,93 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* ============ ACCOUNT / HISAB ============ */}
+      <section className="relative paper torn-top py-20 md:py-28 px-6 md:px-8 mt-4">
+        <div className="absolute inset-0 grain" />
+        <div className="max-w-[1280px] mx-auto relative">
+          <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 md:mb-12 gap-4">
+            <div>
+              <div className="text-[11px] tracking-[.3em] uppercase mb-3 text-[var(--crimson)]">New Feature · Account</div>
+              <h2 className="font-display text-4xl md:text-7xl font-black leading-[0.9]">
+                The hisab that
+                <br />
+                <span className="italic-d font-light text-[var(--pumpkin)]">never forgets.</span>
+              </h2>
+            </div>
+            <div className="max-w-sm md:text-right">
+              <p className="font-display italic text-lg leading-snug text-[var(--ink)]/80">Kisko diya, kisse liya — sab track karo. Running balance, smart settlement, aur export.</p>
+              <div className="mt-4 flex md:justify-end gap-2">
+                <span className="chip" style={{ background: 'var(--crimson)', color: 'var(--cream)', borderColor: 'var(--ink)' }}>diya/liya</span>
+                <span className="chip" style={{ background: 'var(--ink)', color: 'var(--cream)' }}>running balance</span>
+                <span className="chip" style={{ background: 'var(--mint)', color: 'var(--ink)' }}>settlement</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Account Mockup */}
+          <div className="relative min-h-[380px] md:h-[480px] grid grid-cols-1 md:grid-cols-2 border-2 border-[var(--ink)] paper overflow-hidden fold-shadow rounded-[60px_40px_60px_40px]">
+            <div className="absolute inset-0 grain" />
+            <div className="spine hidden md:block" />
+
+            {/* Left: Entry Form + Balances */}
+            <div className="relative p-8 md:p-10">
+              <div className="absolute top-6 left-6 text-[10px] tracking-[.3em] uppercase text-[var(--ink)]/50">Step I</div>
+              <div className="mt-10 space-y-5">
+                <div>
+                  <div className="text-[10px] tracking-[.25em] uppercase text-[var(--crimson)] mb-2">Quick Entry</div>
+                  <div className="space-y-2">
+                    {[
+                      { person: 'Rahul', type: 'Diya', amount: '₹500', color: 'var(--mint)' },
+                      { person: 'Neha', type: 'Liya', amount: '₹300', color: 'var(--crimson)' },
+                      { person: 'Aman', type: 'Diya', amount: '₹1,200', color: 'var(--mint)' },
+                    ].map((item) => (
+                      <div key={item.person} className="flex items-center justify-between px-3 py-2 rounded-xl border border-[var(--ink)]/15" style={{ background: 'var(--cream-2)' }}>
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold" style={{ background: item.color, color: item.type === 'Diya' ? 'var(--ink)' : 'var(--cream)' }}>
+                            {item.type === 'Diya' ? '↑' : '↓'}
+                          </div>
+                          <span className="text-sm text-[var(--ink)]">{item.person}</span>
+                        </div>
+                        <span className="text-sm font-mono font-semibold" style={{ color: item.type === 'Diya' ? 'var(--ink)' : 'var(--crimson)' }}>
+                          {item.amount}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right: Running Balances */}
+            <div className="relative p-8 md:p-10 hidden md:flex flex-col justify-center">
+              <div className="absolute top-6 right-6 text-[10px] tracking-[.3em] uppercase text-[var(--ink)]/50">Step II</div>
+              <div className="space-y-4 mt-6">
+                <div className="text-[10px] tracking-[.25em] uppercase text-[var(--pumpkin)] mb-3">Running Balances</div>
+                {[
+                  { name: 'Rahul', balance: '+₹800', status: 'owed to you', positive: true },
+                  { name: 'Neha', balance: '-₹300', status: 'you owe', positive: false },
+                  { name: 'Aman', balance: '+₹1,200', status: 'owed to you', positive: true },
+                ].map((b) => (
+                  <div key={b.name} className="flex items-center justify-between px-4 py-3 rounded-xl border border-[var(--ink)]/15" style={{ background: b.positive ? 'rgba(168,214,184,0.15)' : 'rgba(194,61,61,0.08)' }}>
+                    <div>
+                      <div className="text-sm font-semibold text-[var(--ink)]">{b.name}</div>
+                      <div className="text-[10px] text-[var(--ink)]/50">{b.status}</div>
+                    </div>
+                    <div className="text-lg font-bold font-display" style={{ color: b.positive ? 'var(--ink)' : 'var(--crimson)' }}>
+                      {b.balance}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="absolute bottom-6 right-8 text-[11px] tracking-[.25em] uppercase text-[var(--ink)]/30">
+              <div className="font-display text-3xl not-italic text-right">004</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ============ SETTLEMENT FLOW ============ */}
       <section id="settlement" className="relative paper-mint torn-top torn-bottom py-20 md:py-28 px-6 md:px-8 mt-4">
         <div className="absolute inset-0 grain" />

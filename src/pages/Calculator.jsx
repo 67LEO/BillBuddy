@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { stagger, fadeUp } from '../utils/animations';
+import { evaluateExpression, formatAmountPreview } from '../utils/mathParser';
 
 const formatCurrency = (n) => `₹${Math.abs(n).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
@@ -18,14 +19,17 @@ export default function Calculator() {
   const [newItemName, setNewItemName] = useState('');
   const [newItemPrice, setNewItemPrice] = useState('');
   const [showAddSavedItem, setShowAddSavedItem] = useState(false);
+  const [editingItemId, setEditingItemId] = useState(null);
+  const [editItemName, setEditItemName] = useState('');
+  const [editItemPrice, setEditItemPrice] = useState('');
 
   const total = useMemo(() => items.reduce((sum, item) => {
-    const p = parseFloat(item.price) || 0;
+    const p = evaluateExpression(item.price) || 0;
     const q = Math.max(0, parseInt(item.quantity) || 0);
     return sum + p * q;
   }, 0), [items]);
 
-  const paid = parseFloat(paidAmount) || 0;
+  const paid = evaluateExpression(paidAmount) || 0;
   const difference = paid - total;
   const isJama = difference >= 0;
 
@@ -66,11 +70,25 @@ export default function Calculator() {
   };
 
   const saveNewSavedItem = () => {
-    if (!newItemName.trim() || !parseFloat(newItemPrice)) return;
-    dispatch({ type: 'ADD_SAVED_ITEM', payload: { name: newItemName.trim(), price: parseFloat(newItemPrice) } });
+    if (!newItemName.trim() || !evaluateExpression(newItemPrice)) return;
+    dispatch({ type: 'ADD_SAVED_ITEM', payload: { name: newItemName.trim(), price: evaluateExpression(newItemPrice) } });
     setNewItemName('');
     setNewItemPrice('');
     setShowAddSavedItem(false);
+  };
+
+  const startEditItem = (item) => {
+    setEditingItemId(item.id);
+    setEditItemName(item.name);
+    setEditItemPrice(item.price);
+  };
+
+  const saveEditItem = () => {
+    setItems(items.map((item) => {
+      if (item.id !== editingItemId) return item;
+      return { ...item, name: editItemName.trim() || item.name, price: editItemPrice || item.price };
+    }));
+    setEditingItemId(null);
   };
 
   const resetForm = () => {
@@ -82,10 +100,10 @@ export default function Calculator() {
 
   const saveBill = () => {
     const billItems = items
-      .filter((item) => item.name.trim() && parseFloat(item.price) > 0)
+      .filter((item) => item.name.trim() && evaluateExpression(item.price) > 0)
       .map((item) => ({
         name: item.name.trim(),
-        price: parseFloat(item.price) || 0,
+        price: evaluateExpression(item.price) || 0,
         quantity: Math.max(1, parseInt(item.quantity) || 1),
       }));
 
@@ -242,11 +260,10 @@ export default function Calculator() {
                 <div className="relative w-28">
                   <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--crimson)] font-semibold text-xs pointer-events-none">₹</span>
                   <input
-                    type="number"
+                    type="text"
                     value={newItemPrice}
                     onChange={(e) => setNewItemPrice(e.target.value)}
-                    placeholder="0"
-                    min="0"
+                    placeholder="0 — ya 500*3"
                     className="input"
                     style={{ fontSize: '0.8125rem', padding: '0.5rem 0.75rem', paddingLeft: '1.75rem' }}
                     onKeyDown={(e) => e.key === 'Enter' && saveNewSavedItem()}
@@ -275,17 +292,27 @@ export default function Calculator() {
                   <span className="text-[var(--ink)] font-medium">{si.name}</span>
                   <span className="text-[var(--crimson)] font-mono text-xs font-semibold">{formatCurrency(si.price)}</span>
                   <i className="ti ti-plus text-[var(--ink)]/40 text-xs group-hover/item:text-[var(--mint)] transition-colors" />
-                  <button
+                  <span
+                    role="button"
+                    tabIndex={0}
                     onClick={(e) => {
                       e.stopPropagation();
                       if (confirm('Yeh saved item delete ho jayega?')) {
                         dispatch({ type: 'DELETE_SAVED_ITEM', payload: si.id });
                       }
                     }}
-                    className="ml-0.5 text-[var(--ink)]/30 hover:text-[var(--crimson)] transition-colors"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.stopPropagation();
+                        if (confirm('Yeh saved item delete ho jayega?')) {
+                          dispatch({ type: 'DELETE_SAVED_ITEM', payload: si.id });
+                        }
+                      }
+                    }}
+                    className="ml-0.5 text-[var(--ink)]/30 hover:text-[var(--crimson)] transition-colors cursor-pointer"
                   >
                     <i className="ti ti-x text-[10px]" />
-                  </button>
+                  </span>
                 </motion.button>
               ))}
             </div>
@@ -322,7 +349,7 @@ export default function Calculator() {
             <div className="space-y-2">
               <AnimatePresence>
                 {items.map((item, i) => {
-                  const itemTotal = (parseFloat(item.price) || 0) * (parseInt(item.quantity) || 0);
+                  const itemTotal = (evaluateExpression(item.price) || 0) * (parseInt(item.quantity) || 0);
                   return (
                     <motion.div
                       key={item.id}
@@ -333,46 +360,62 @@ export default function Calculator() {
                       className="ink-border rounded-2xl p-3"
                       style={{ background: 'var(--cream-2)' }}
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium text-[var(--ink)] truncate">{item.name}</div>
-                          <div className="text-xs text-[var(--ink)]/50 font-mono">{formatCurrency(parseFloat(item.price) || 0)} / unit</div>
-                        </div>
-
-                        <div className="flex items-center gap-1 shrink-0">
-                          <button
-                            onClick={() => updateQuantity(item.id, -1)}
-                            className="w-8 h-8 rounded-lg border-2 border-[var(--ink)]/15 flex items-center justify-center text-[var(--ink)]/60 hover:border-[var(--crimson)] hover:text-[var(--crimson)] transition-all cursor-pointer text-xs font-bold"
-                            disabled={(parseInt(item.quantity) || 0) <= 1}
-                          >
-                            <i className="ti ti-minus text-sm" />
-                          </button>
-                          <span className="w-8 text-center text-sm font-semibold text-[var(--ink)]">
-                            {item.quantity || 1}
-                          </span>
-                          <button
-                            onClick={() => updateQuantity(item.id, 1)}
-                            className="w-8 h-8 rounded-lg border-2 border-[var(--ink)]/15 flex items-center justify-center text-[var(--ink)]/60 hover:border-[var(--mint)] hover:text-[var(--ink)] transition-all cursor-pointer text-xs font-bold"
-                          >
-                            <i className="ti ti-plus text-sm" />
-                          </button>
-                        </div>
-
-                        <div className="text-right shrink-0 w-16">
-                          {itemTotal > 0 && (
-                            <div className="text-xs text-[var(--pumpkin)] font-mono font-semibold">
-                              {formatCurrency(itemTotal)}
+                      {editingItemId === item.id ? (
+                        <div className="space-y-2">
+                          <div className="flex gap-2">
+                            <input type="text" value={editItemName} onChange={(e) => setEditItemName(e.target.value)} className="input flex-1 text-sm" style={{ padding: '0.375rem 0.5rem' }} onKeyDown={(e) => e.key === 'Enter' && saveEditItem()} />
+                            <div className="relative w-24">
+                              <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[var(--crimson)] font-semibold text-[10px] pointer-events-none">₹</span>
+                              <input type="text" value={editItemPrice} onChange={(e) => setEditItemPrice(e.target.value)} className="input text-sm" style={{ padding: '0.375rem 0.5rem', paddingLeft: '1.25rem' }} onKeyDown={(e) => e.key === 'Enter' && saveEditItem()} />
                             </div>
-                          )}
+                          </div>
+                          <div className="flex gap-2 justify-end">
+                            <button onClick={() => setEditingItemId(null)} className="px-2 py-1 rounded text-[10px] font-semibold cursor-pointer" style={{ background: 'var(--ink)', color: 'var(--cream)' }}>Cancel</button>
+                            <button onClick={saveEditItem} className="px-2 py-1 rounded text-[10px] font-semibold cursor-pointer" style={{ background: 'var(--mint)', color: 'var(--ink)' }}>Save</button>
+                          </div>
                         </div>
+                      ) : (
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1 min-w-0 cursor-pointer" onClick={() => startEditItem(item)}>
+                            <div className="text-sm font-medium text-[var(--ink)] truncate hover:underline">{item.name}</div>
+                            <div className="text-xs text-[var(--ink)]/50 font-mono">{formatCurrency(evaluateExpression(item.price) || 0)} / unit</div>
+                          </div>
 
-                        <button
-                          onClick={() => removeItem(item.id)}
-                          className="p-1.5 rounded-lg text-[var(--ink)]/40 hover:text-[var(--crimson)] hover:bg-[var(--crimson)]/10 transition-all cursor-pointer shrink-0"
-                        >
-                          <i className="ti ti-trash text-xs" />
-                        </button>
-                      </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              onClick={() => updateQuantity(item.id, -1)}
+                              className="w-8 h-8 rounded-lg border-2 border-[var(--ink)]/15 flex items-center justify-center text-[var(--ink)]/60 hover:border-[var(--crimson)] hover:text-[var(--crimson)] transition-all cursor-pointer text-xs font-bold"
+                              disabled={(parseInt(item.quantity) || 0) <= 1}
+                            >
+                              <i className="ti ti-minus text-sm" />
+                            </button>
+                            <span className="w-8 text-center text-sm font-semibold text-[var(--ink)]">
+                              {item.quantity || 1}
+                            </span>
+                            <button
+                              onClick={() => updateQuantity(item.id, 1)}
+                              className="w-8 h-8 rounded-lg border-2 border-[var(--ink)]/15 flex items-center justify-center text-[var(--ink)]/60 hover:border-[var(--mint)] hover:text-[var(--ink)] transition-all cursor-pointer text-xs font-bold"
+                            >
+                              <i className="ti ti-plus text-sm" />
+                            </button>
+                          </div>
+
+                          <div className="text-right shrink-0 w-16">
+                            {itemTotal > 0 && (
+                              <div className="text-xs text-[var(--pumpkin)] font-mono font-semibold">
+                                {formatCurrency(itemTotal)}
+                              </div>
+                            )}
+                          </div>
+
+                          <button
+                            onClick={() => removeItem(item.id)}
+                            className="p-1.5 rounded-lg text-[var(--ink)]/40 hover:text-[var(--crimson)] hover:bg-[var(--crimson)]/10 transition-all cursor-pointer shrink-0"
+                          >
+                            <i className="ti ti-trash text-xs" />
+                          </button>
+                        </div>
+                      )}
                     </motion.div>
                   );
                 })}
@@ -395,19 +438,21 @@ export default function Calculator() {
           </div>
 
           <div className="mb-4">
-            <label className="label">Kitna paisa diya? <span className="text-[var(--ink)]/30">(optional)</span></label>
+            <label className="label">Kitna paisa diya? <span className="text-[var(--ink)]/30">(optional — 500*3 bhi chalega)</span></label>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--crimson)] font-semibold text-lg pointer-events-none">₹</span>
               <input
-                type="number"
+                type="text"
                 value={paidAmount}
                 onChange={(e) => setPaidAmount(e.target.value)}
-                placeholder="0"
-                min="0"
+                placeholder="0 — ya 500*3, 1000+500"
                 className="input input-lg"
                 style={{ paddingLeft: '2.5rem' }}
               />
             </div>
+            {paidAmount && formatAmountPreview(paidAmount) && (
+              <p className="text-xs text-[var(--mint)] font-medium mt-1">{formatAmountPreview(paidAmount)}</p>
+            )}
           </div>
 
           {paid > 0 && total > 0 && (

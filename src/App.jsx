@@ -10,6 +10,11 @@ import GroupView from './pages/GroupView';
 import Settlement from './pages/Settlement';
 import Analytics from './pages/Analytics';
 import Calculator from './pages/Calculator';
+import Account from './pages/Account';
+import AccountSettlement from './pages/AccountSettlement';
+import SettledHistory from './pages/SettledHistory';
+import Profile from './pages/Profile';
+import Contacts from './pages/Contacts';
 import NotFound from './pages/NotFound';
 import './index.css';
 
@@ -73,6 +78,18 @@ function Navbar() {
             >
               Home
             </Link>
+            <Link
+              to="/account"
+              className={`nav-link px-3 py-2 text-sm font-medium transition-colors ${location.pathname === '/account' ? 'text-[var(--ink)]' : 'text-[var(--ink)]/50 hover:text-[var(--ink)]'}`}
+            >
+              Account
+            </Link>
+            <Link
+              to="/contacts"
+              className={`nav-link px-3 py-2 text-sm font-medium transition-colors ${location.pathname === '/contacts' ? 'text-[var(--ink)]' : 'text-[var(--ink)]/50 hover:text-[var(--ink)]'}`}
+            >
+              Contacts
+            </Link>
             {state.activeGroupId && (
               <>
                 <Link
@@ -94,11 +111,12 @@ function Navbar() {
           {isAuthenticated && (
             <div className="flex items-center gap-2 ml-3 pl-3" style={{ borderLeft: '1px solid rgba(58,44,92,0.12)' }}>
               <div className="hidden md:flex items-center gap-2">
-                <div
-                  className="w-7 h-7 rounded-full bg-[var(--ink)] flex items-center justify-center"
+                <Link
+                  to="/profile"
+                  className="w-7 h-7 rounded-full bg-[var(--ink)] flex items-center justify-center hover:ring-2 hover:ring-[var(--pumpkin)] transition-all"
                 >
                   <span className="text-[var(--cream)] text-[10px] font-bold">{user?.email?.[0]?.toUpperCase() || 'U'}</span>
-                </div>
+                </Link>
                 <span className="text-xs text-[var(--ink)]/50 max-w-[120px] truncate">{user?.email || 'User'}</span>
               </div>
               <button
@@ -129,10 +147,12 @@ function MobileBottomNav() {
 
   const navItems = [
     { path: '/dashboard', icon: 'ti ti-home', label: 'Home' },
+    { path: '/account', icon: 'ti ti-wallet', label: 'Account' },
+    { path: '/contacts', icon: 'ti ti-notebook', label: 'Contacts' },
+    { path: '/profile', icon: 'ti ti-user', label: 'Profile' },
     ...(state.activeGroupId
       ? [
           { path: `/group/${state.activeGroupId}`, icon: 'ti ti-users', label: 'Group' },
-          { path: `/analytics/${state.activeGroupId}`, icon: 'ti ti-chart-pie', label: 'Analytics' },
         ]
       : []),
   ];
@@ -171,6 +191,11 @@ function AnimatedRoutes() {
         <Route path="/login" element={<Login />} />
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/calculator" element={<ProtectedRoute><Calculator /></ProtectedRoute>} />
+        <Route path="/account" element={<ProtectedRoute><Account /></ProtectedRoute>} />
+        <Route path="/account/settlement" element={<ProtectedRoute><AccountSettlement /></ProtectedRoute>} />
+        <Route path="/account/settled-history" element={<ProtectedRoute><SettledHistory /></ProtectedRoute>} />
+        <Route path="/contacts" element={<ProtectedRoute><Contacts /></ProtectedRoute>} />
+        <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/group/:groupId" element={<ProtectedRoute><GroupView /></ProtectedRoute>} />
         <Route path="/settlement/:groupId" element={<ProtectedRoute><Settlement /></ProtectedRoute>} />
         <Route path="/analytics/:groupId" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
