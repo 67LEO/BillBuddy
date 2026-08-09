@@ -38,6 +38,9 @@ import {
   fetchSharedGroups,
   updateExpenseLastEditor,
   findGroupsByMemberMobile,
+  logGroupActivity,
+  fetchNotifications,
+  markNotificationsRead,
 } from '../lib/supabase';
 
 const AppContext = createContext(null);
@@ -54,6 +57,7 @@ const initialState = {
   savedPersons: [],
   sharedGroups: [],
   sharedExpenses: [],
+  notifications: [],
   activeGroupId: null,
 };
 
@@ -87,6 +91,7 @@ export function AppProvider({ children }) {
           fetchCategories(user.id),
           fetchSavedPersons(user.id),
           fetchSharedGroups(user.id),
+          fetchNotifications(user.id),
         ]);
 
         if (!cancelled) {
@@ -99,6 +104,7 @@ export function AppProvider({ children }) {
           const categories = results[6].status === 'fulfilled' ? results[6].value : [];
           const savedPersons = results[7].status === 'fulfilled' ? results[7].value : [];
           const sharedData = results[8].status === 'fulfilled' ? results[8].value : { groups: [], expenses: [] };
+          const notifications = results[9].status === 'fulfilled' ? results[9].value : [];
 
           setState((prev) => ({
             ...prev,
@@ -113,6 +119,7 @@ export function AppProvider({ children }) {
             savedPersons,
             sharedGroups: sharedData.groups || [],
             sharedExpenses: sharedData.expenses || [],
+            notifications,
           }));
           setLoading(false);
         }
@@ -125,6 +132,22 @@ export function AppProvider({ children }) {
     load();
 
     return () => { cancelled = true; };
+  }, [user]);
+
+  // Notifications polling — har 20s fresh fetch
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    const poll = async () => {
+      const notifs = await fetchNotifications(user.id);
+      if (!cancelled) setState((prev) => ({ ...prev, notifications: notifs }));
+    };
+    poll();
+    const interval = setInterval(poll, 20000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [user]);
 
   useEffect(() => {
@@ -195,6 +218,12 @@ export function AppProvider({ children }) {
           expense.lastEditedBy = editorName;
         }
         setState((prev) => ({ ...prev, expenses: [...prev.expenses, expense] }));
+        logGroupActivity({
+          groupId: action.payload.groupId,
+          action: 'expense_added',
+          amount: action.payload.amount,
+          description: action.payload.description,
+        });
         break;
       }
 
@@ -209,15 +238,25 @@ export function AppProvider({ children }) {
           ...prev,
           expenses: prev.expenses.map((e) => (e.id === updated.id ? updated : e)),
         }));
+        logGroupActivity({
+          groupId: action.payload.groupId,
+          action: 'expense_updated',
+          description: action.payload.updates.description || '',
+        });
         break;
       }
 
       case 'DELETE_EXPENSE': {
-        await deleteExpenseFromDB(action.payload);
+        await deleteExpenseFromDB(action.payload.id);
         setState((prev) => ({
           ...prev,
-          expenses: prev.expenses.filter((e) => e.id !== action.payload),
+          expenses: prev.expenses.filter((e) => e.id !== action.payload.id),
         }));
+        logGroupActivity({
+          groupId: action.payload.groupId,
+          action: 'expense_deleted',
+          description: action.payload.description || '',
+        });
         break;
       }
 
@@ -245,6 +284,11 @@ export function AppProvider({ children }) {
             }
           }
         }
+        logGroupActivity({
+          groupId: action.payload.groupId,
+          action: 'member_added',
+          memberName: action.payload.name,
+        });
         break;
       }
 
@@ -445,6 +489,25 @@ export function AppProvider({ children }) {
         setState((prev) => ({
           ...prev,
           savedPersons: prev.savedPersons.map((s) => (s.id === updatedPerson.id ? updatedPerson : s)),
+        }));
+        break;
+      }
+
+      case 'REFRESH_NOTIFICATIONS': {
+        if (!user) break;
+        const notifs = await fetchNotifications(user.id);
+        setState((prev) => ({ ...prev, notifications: notifs }));
+        break;
+      }
+
+      case 'MARK_NOTIFICATIONS_READ': {
+        const ids = action.payload;
+        if (ids && ids.length > 0) await markNotificationsRead(ids);
+        setState((prev) => ({
+          ...prev,
+          notifications: prev.notifications.map((n) =>
+            n.read_at ? n : { ...n, read_at: new Date().toISOString() }
+          ),
         }));
         break;
       }

@@ -263,3 +263,274 @@ BEGIN
     AND g.user_id != auth.uid();
 END;
 $$;
+
+-- ============================================
+-- 17. ADMIN RPCs
+-- Sirf 2 admin emails ke liye access:
+--   kingorwot007@gmail.com
+--   mohitoza338@gmail.com
+-- ============================================
+
+-- 17a. is_admin() — kya current logged-in user admin hai?
+CREATE OR REPLACE FUNCTION is_admin()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT COALESCE(
+    lower(coalesce(auth.jwt() ->> 'email', '')) IN (
+      'kingorwot007@gmail.com',
+      'mohitoza338@gmail.com'
+    ),
+    false
+  );
+$$;
+
+-- 17b. get_all_users() — sab users ka data, sirf admin dekh sakta hai
+CREATE OR REPLACE FUNCTION get_all_users()
+RETURNS TABLE (
+  user_id UUID,
+  email TEXT,
+  display_name TEXT,
+  mobile TEXT,
+  mobile2 TEXT,
+  created_at TIMESTAMPTZ,
+  groups_count BIGINT,
+  expenses_count BIGINT,
+  account_entries BIGINT,
+  contacts_count BIGINT
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  IF NOT is_admin() THEN
+    RETURN;
+  END IF;
+
+  RETURN QUERY
+  SELECT
+    u.id::uuid AS user_id,
+    u.email::text AS email,
+    COALESCE(p.display_name, '')::text AS display_name,
+    COALESCE(p.mobile, '')::text AS mobile,
+    COALESCE(p.mobile2, '')::text AS mobile2,
+    u.created_at::timestamptz AS created_at,
+    (SELECT COUNT(*)::bigint FROM groups g WHERE g.user_id = u.id) AS groups_count,
+    (SELECT COUNT(*)::bigint FROM expenses e WHERE e.group_id IN (SELECT id FROM groups g WHERE g.user_id = u.id)) AS expenses_count,
+    (SELECT COUNT(*)::bigint FROM accounts a WHERE a.user_id = u.id) AS account_entries,
+    (SELECT COUNT(*)::bigint FROM contacts c WHERE c.user_id = u.id) AS contacts_count
+  FROM auth.users u
+  LEFT JOIN profiles p ON p.user_id = u.id
+  ORDER BY u.created_at DESC;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION get_all_users() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION get_all_users() TO authenticated;
+GRANT EXECUTE ON FUNCTION is_admin() TO authenticated;
+
+-- 17c. check_mobile_exists() — duplicate mobile check
+-- Kisi aur account me wo number pehle se hai to MASKED info return karega
+-- (naam: sirf pehla letter + ***, email: local part mask + @domain).
+-- Khud ka account exclude hota hai. Full info kabhi reveal nahi hoti.
+CREATE OR REPLACE FUNCTION check_mobile_exists(mobile_numbers TEXT[])
+RETURNS TABLE (
+  mobile TEXT,
+  display_name_masked TEXT,
+  email_masked TEXT
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  me UUID := auth.uid();
+BEGIN
+  RETURN QUERY
+  SELECT
+    m::text AS mobile,
+    CASE
+      WHEN COALESCE(p.display_name, '') = '' THEN 'Unknown'::text
+      ELSE left(p.display_name, 1) || repeat('*', greatest(1, length(p.display_name) - 1))
+    END::text AS display_name_masked,
+    left(split_part(u.email, '@', 1), 1) || repeat('*', greatest(1, length(split_part(u.email, '@', 1)) - 1)) || '@' || split_part(u.email, '@', 2) AS email_masked
+  FROM unnest(mobile_numbers) AS m
+  JOIN profiles p ON (p.mobile = m OR p.mobile2 = m) AND p.user_id != me
+  JOIN auth.users u ON u.id = p.user_id
+  WHERE m IS NOT NULL AND m <> ''
+  ORDER BY m;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION check_mobile_exists(mobile_numbers TEXT[]) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION check_mobile_exists(TEXT[]) TO authenticated;
+
+-- ============================================
+-- 18. Duplicate mobile cleanup + hard prevention
+-- ============================================
+
+-- 18a. Purane duplicates clean karo
+-- Ek number sirf us account pe rahega jisne SABSE PEHLE use kiya.
+-- Baaki sab accounts se wo number blank ho jayega. (Ek baar run karna hai.)
+DO $$
+DECLARE
+  rec RECORD;
+  keeper_id UUID;
+BEGIN
+  FOR rec IN
+    SELECT DISTINCT num
+    FROM (
+      SELECT mobile AS num FROM profiles WHERE mobile <> ''
+      UNION
+      SELECT mobile2 AS num FROM profiles WHERE mobile2 <> ''
+    ) t
+  LOOP
+    SELECT id INTO keeper_id
+    FROM profiles
+    WHERE mobile = rec.num OR mobile2 = rec.num
+    ORDER BY created_at ASC, id ASC
+    LIMIT 1;
+
+    IF keeper_id IS NULL THEN
+      CONTINUE;
+    END IF;
+
+    UPDATE profiles
+    SET mobile  = CASE WHEN mobile  = rec.num THEN '' ELSE mobile  END,
+        mobile2 = CASE WHEN mobile2 = rec.num THEN '' ELSE mobile2 END
+    WHERE id <> keeper_id
+      AND (mobile = rec.num OR mobile2 = rec.num);
+  END LOOP;
+END $$;
+
+-- 18b. Hard prevention trigger
+-- Ab se koi naya/updated number kisi AUR account me pehle se ho to save fail.
+-- SECURITY DEFINER (postgres owner) taaki RLS bypass karke sab rows check ho.
+CREATE OR REPLACE FUNCTION prevent_duplicate_mobile()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  IF NEW.mobile IS NOT NULL AND NEW.mobile <> '' AND EXISTS (
+    SELECT 1 FROM profiles
+    WHERE id <> NEW.id
+      AND (mobile = NEW.mobile OR mobile2 = NEW.mobile)
+  ) THEN
+    RAISE EXCEPTION 'Mobile number % already in use by another account', NEW.mobile;
+  END IF;
+
+  IF NEW.mobile2 IS NOT NULL AND NEW.mobile2 <> ''
+     AND NEW.mobile2 <> COALESCE(NEW.mobile, '') AND EXISTS (
+    SELECT 1 FROM profiles
+    WHERE id <> NEW.id
+      AND (mobile = NEW.mobile2 OR mobile2 = NEW.mobile2)
+  ) THEN
+    RAISE EXCEPTION 'Mobile number % already in use by another account', NEW.mobile2;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_profiles_no_dup_mobile ON profiles;
+CREATE TRIGGER trg_profiles_no_dup_mobile
+  BEFORE INSERT OR UPDATE ON profiles
+  FOR EACH ROW
+  EXECUTE FUNCTION prevent_duplicate_mobile();
+
+-- ============================================
+-- 19. Group Activity Notifications
+-- (Supabase-notifications.sql ka same code)
+-- ============================================
+
+-- 19a. Notifications table
+CREATE TABLE IF NOT EXISTS notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  group_id UUID REFERENCES groups(id) ON DELETE CASCADE NOT NULL,
+  group_name TEXT NOT NULL DEFAULT '',
+  actor_name TEXT NOT NULL DEFAULT '',
+  action TEXT NOT NULL,
+  message TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  read_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_user_time
+  ON notifications(user_id, created_at DESC);
+
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+
+-- Har user sirf apni notifications dekhe/read kare.
+CREATE POLICY "user_can_view_own_notifications"
+  ON notifications FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "user_can_mark_own_notifications_read"
+  ON notifications FOR UPDATE
+  USING (auth.uid() = user_id);
+
+-- 19b. RPC — group activity log karke saare participants ko notify karo
+CREATE OR REPLACE FUNCTION log_group_activity(
+  p_group_id UUID,
+  p_action TEXT,
+  p_amount NUMERIC DEFAULT NULL,
+  p_description TEXT DEFAULT '',
+  p_member_name TEXT DEFAULT ''
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_actor_name TEXT;
+  v_group_name TEXT;
+  v_message TEXT;
+BEGIN
+  SELECT COALESCE(NULLIF(p.display_name, ''), split_part(u.email, '@', 1), 'Someone')
+  INTO v_actor_name
+  FROM profiles p
+  LEFT JOIN auth.users u ON u.id = p.user_id
+  WHERE p.user_id = auth.uid()
+  LIMIT 1;
+
+  IF v_actor_name IS NULL THEN
+    v_actor_name := 'Someone';
+  END IF;
+
+  SELECT name INTO v_group_name FROM groups WHERE id = p_group_id;
+  IF v_group_name IS NULL THEN
+    v_group_name := 'Group';
+  END IF;
+
+  v_message := CASE p_action
+    WHEN 'expense_added' THEN
+      v_actor_name || ' ne ₹' || COALESCE(ROUND(p_amount)::text, '0') || ' ka "' || COALESCE(p_description, '') || '" add kiya'
+    WHEN 'expense_updated' THEN
+      v_actor_name || ' ne "' || COALESCE(p_description, '') || '" update kiya'
+    WHEN 'expense_deleted' THEN
+      v_actor_name || ' ne "' || COALESCE(p_description, '') || '" delete kar diya'
+    WHEN 'member_added' THEN
+      v_actor_name || ' ne "' || COALESCE(p_member_name, '') || '" ko member banaya'
+    WHEN 'settlement_planned' THEN
+      v_actor_name || ' ne settle plan banaya'
+    ELSE
+      v_actor_name || ' ne ' || v_group_name || ' me activity ki'
+  END;
+
+  INSERT INTO notifications (user_id, group_id, group_name, actor_name, action, message)
+  SELECT user_id, p_group_id, v_group_name, v_actor_name, p_action, v_message
+  FROM (
+    SELECT user_id FROM groups WHERE id = p_group_id
+    UNION
+    SELECT user_id FROM shared_groups WHERE group_id = p_group_id
+  ) recipients
+  WHERE user_id IS NOT NULL;
+
+  RETURN;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION log_group_activity(UUID, TEXT, NUMERIC, TEXT, TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION log_group_activity(UUID, TEXT, NUMERIC, TEXT, TEXT) TO authenticated;

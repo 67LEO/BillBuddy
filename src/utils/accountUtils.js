@@ -8,34 +8,98 @@ export const DEFAULT_CATEGORIES = [
   { name: 'General', icon: '📦', color: '#3A2C5C' },
 ];
 
+function normalizeName(name) {
+  return (name || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function canonicalPhone(mobile) {
+  return (mobile || '').replace(/\D/g, '').slice(-10);
+}
+
+// Same person ko ek bucket me milao — naam normalize karke AUR mobile se bhi.
+// Union-find taaki naam + mobile dono se groups merge ho.
+function bucketByPerson(accounts) {
+  const entries = accounts.filter((a) => a.personName && a.personName.trim());
+  if (entries.length === 0) return [];
+
+  const parent = Array.from({ length: entries.length }, (_, i) => i);
+  const find = (i) => {
+    while (parent[i] !== i) {
+      parent[i] = parent[parent[i]];
+      i = parent[i];
+    }
+    return i;
+  };
+  const union = (a, b) => {
+    const ra = find(a);
+    const rb = find(b);
+    if (ra !== rb) parent[ra] = rb;
+  };
+
+  const nameIdx = {};
+  entries.forEach((e, i) => {
+    const k = normalizeName(e.personName);
+    if (!k) return;
+    if (nameIdx[k] !== undefined) union(nameIdx[k], i);
+    else nameIdx[k] = i;
+  });
+
+  const phoneIdx = {};
+  entries.forEach((e, i) => {
+    const p = canonicalPhone(e.mobile);
+    if (!p) return;
+    if (phoneIdx[p] !== undefined) union(phoneIdx[p], i);
+    else phoneIdx[p] = i;
+  });
+
+  const groups = new Map();
+  entries.forEach((e, i) => {
+    const root = find(i);
+    if (!groups.has(root)) groups.set(root, { name: '', mobile: '', entries: [] });
+    const g = groups.get(root);
+    g.entries.push(e);
+    if (e.mobile && !g.mobile) g.mobile = e.mobile;
+  });
+
+  return [...groups.values()].map((g) => {
+    const counts = {};
+    let best = '';
+    g.entries.forEach((e) => {
+      const n = e.personName.trim();
+      if (!n) return;
+      counts[n] = (counts[n] || 0) + 1;
+      if (!best || counts[n] > counts[best]) best = n;
+    });
+    g.name = best || g.entries[0]?.personName?.trim() || '';
+    return g;
+  });
+}
+
 export function calculateRunningBalances(accounts) {
   const balances = {};
 
-  accounts
-    .filter((a) => !a.isSettled)
-    .forEach((entry) => {
-      const name = entry.personName.trim();
-      if (!name) return;
+  bucketByPerson(accounts).forEach((b) => {
+    const active = b.entries.filter((a) => !a.isSettled);
+    if (active.length === 0 || !b.name) return;
 
-      if (!balances[name]) {
-        balances[name] = { name, totalDiya: 0, totalLiya: 0, net: 0, mobile: entry.mobile || '', entries: [] };
-      }
+    balances[b.name] = {
+      name: b.name,
+      totalDiya: 0,
+      totalLiya: 0,
+      net: 0,
+      mobile: b.mobile,
+      entries: active,
+    };
 
-      balances[name].entries.push(entry);
-
+    active.forEach((entry) => {
       if (entry.type === 'diya') {
-        balances[name].totalDiya += entry.amount;
+        balances[b.name].totalDiya += entry.amount;
       } else {
-        balances[name].totalLiya += entry.amount;
-      }
-
-      if (entry.mobile && !balances[name].mobile) {
-        balances[name].mobile = entry.mobile;
+        balances[b.name].totalLiya += entry.amount;
       }
     });
 
-  Object.values(balances).forEach((b) => {
-    b.net = b.totalDiya - b.totalLiya;
+    balances[b.name].net = balances[b.name].totalDiya - balances[b.name].totalLiya;
   });
 
   return balances;
@@ -143,14 +207,21 @@ export function getAccountStats(accounts) {
 }
 
 export function getUniquePersons(accounts) {
-  const persons = {};
-  accounts.forEach((a) => {
-    const name = a.personName.trim();
-    if (name && !persons[name]) {
-      persons[name] = { name, mobile: a.mobile || '' };
-    } else if (name && a.mobile && !persons[name].mobile) {
-      persons[name].mobile = a.mobile;
-    }
-  });
-  return Object.values(persons);
+  return bucketByPerson(accounts).map((b) => ({ name: b.name, mobile: b.mobile || '' }));
+}
+
+export function groupAccountsByPerson(accounts) {
+  return bucketByPerson(accounts)
+    .map((b) => {
+      let totalDiya = 0;
+      let totalLiya = 0;
+      let total = 0;
+      b.entries.forEach((entry) => {
+        if (entry.type === 'diya') totalDiya += entry.amount;
+        else totalLiya += entry.amount;
+        total += entry.amount;
+      });
+      return { name: b.name, totalDiya, totalLiya, total, entries: b.entries };
+    })
+    .sort((a, b) => b.total - a.total);
 }

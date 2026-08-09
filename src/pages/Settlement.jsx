@@ -1,18 +1,28 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { calculateAllBalances } from '../utils/splitCalculator';
 import { optimizeSettlements } from '../utils/settlementOptimizer';
 import { stagger, fadeUp } from '../utils/animations';
+import { logGroupActivity } from '../lib/supabase';
 
 export default function Settlement() {
   const { groupId } = useParams();
   const { state } = useApp();
   const navigate = useNavigate();
 
-  const group = state.groups.find((g) => g.id === groupId);
-  const groupExpenses = state.expenses.filter((e) => e.groupId === groupId);
+  const group = state.groups.find((g) => g.id === groupId) || state.sharedGroups.find((g) => g.id === groupId);
+  const isShared = !state.groups.find((g) => g.id === groupId);
+  const groupExpenses = (isShared ? state.sharedExpenses : state.expenses).filter((e) => e.groupId === groupId);
+
+  const loggedGroupRef = useRef(null);
+  useEffect(() => {
+    if (group && !isShared && loggedGroupRef.current !== groupId) {
+      loggedGroupRef.current = groupId;
+      logGroupActivity({ groupId, action: 'settlement_planned' });
+    }
+  }, [groupId, isShared, group]);
 
   const settlements = useMemo(() => {
     if (!group) return [];

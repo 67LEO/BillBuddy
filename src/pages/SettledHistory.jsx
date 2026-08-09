@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
+import { groupAccountsByPerson } from '../utils/accountUtils';
 
 const formatCurrency = (n) => `₹${Math.abs(n).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
@@ -16,6 +17,8 @@ export default function SettledHistory() {
       .filter((a) => a.isSettled)
       .sort((a, b) => new Date(b.settledAt || b.date) - new Date(a.settledAt || a.date));
   }, [state.accounts]);
+
+  const settledByPerson = useMemo(() => groupAccountsByPerson(settledEntries), [settledEntries]);
 
   const totalSettledAmount = useMemo(() => settledEntries.reduce((s, e) => s + e.amount, 0), [settledEntries]);
 
@@ -107,78 +110,94 @@ export default function SettledHistory() {
           </motion.div>
         )}
 
-        {/* SETTLED ENTRIES LIST */}
+        {/* SETTLED ENTRIES — PERSON-WISE */}
         {settledEntries.length > 0 ? (
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="space-y-2"
+            className="space-y-3"
           >
-            {settledEntries.map((entry, idx) => {
-              const entryDate = entry.date ? new Date(entry.date) : null;
-              const settledDate = entry.settledAt ? new Date(entry.settledAt) : null;
-              return (
-                <motion.div
-                  key={entry.id}
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.05 + idx * 0.03 }}
-                  className="ink-border rounded-2xl p-3.5"
-                  style={{ background: 'var(--cream-2)' }}
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                      style={{ background: 'var(--mint)' }}
-                    >
-                      <i className="ti ti-check text-[var(--ink)] text-sm" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-[var(--ink)] font-medium">{entry.personName}</span>
-                        <span
-                          className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-                          style={{
-                            background: entry.type === 'diya' ? 'rgba(220,38,38,0.08)' : 'rgba(34,197,94,0.08)',
-                            color: entry.type === 'diya' ? 'var(--crimson)' : '#22c55e',
-                          }}
-                        >
-                          {entry.type === 'diya' ? 'Diya' : 'Liya'}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                        {entryDate && (
-                          <span className="text-[10px] text-[var(--ink)]/40">
-                            {entryDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                          </span>
-                        )}
-                        {settledDate && (
-                          <>
-                            <span className="text-[var(--ink)]/20">→</span>
-                            <span className="text-[10px] text-[#22c55e] font-medium">
-                              Settled {settledDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                              {' '}{settledDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                          </>
-                        )}
-                      </div>
-                      {entry.note && <p className="text-[10px] text-[var(--ink)]/30 mt-0.5">{entry.note}</p>}
-                    </div>
-                    <div className="text-sm font-mono font-semibold text-[var(--ink)]">
-                      {formatCurrency(entry.amount)}
-                    </div>
-                    <button
-                      onClick={() => handleUnsettle(entry.id)}
-                      className="p-1.5 rounded-lg text-[var(--ink)]/30 hover:text-[var(--pumpkin)] hover:bg-[var(--pumpkin)]/10 transition-all cursor-pointer shrink-0"
-                      title="Undo settle"
-                    >
-                      <i className="ti ti-rotate text-xs" />
-                    </button>
+            {settledByPerson.map((person, idx) => (
+              <motion.div
+                key={person.name}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.05 + idx * 0.05 }}
+                className="ink-border rounded-2xl p-4"
+                style={{ background: 'rgba(34,197,94,0.03)' }}
+              >
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'var(--mint)' }}>
+                    <span className="text-[var(--ink)] font-bold text-sm">{person.name[0].toUpperCase()}</span>
                   </div>
-                </motion.div>
-              );
-            })}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-bold text-[var(--ink)] font-display">{person.name}</div>
+                    <div className="text-[10px] text-[var(--ink)]/40">{person.entries.length} settled entries</div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="text-sm font-bold font-mono text-[var(--ink)]">{formatCurrency(person.total)}</div>
+                    <div className="text-[10px] text-[var(--ink)]/40">
+                      D: {formatCurrency(person.totalDiya)} · L: {formatCurrency(person.totalLiya)}
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  {person.entries.map((entry) => {
+                    const entryDate = entry.date ? new Date(entry.date) : null;
+                    const settledDate = entry.settledAt ? new Date(entry.settledAt) : null;
+                    return (
+                      <div
+                        key={entry.id}
+                        className="rounded-xl p-2.5 flex items-center gap-3"
+                        style={{ background: 'var(--cream-2)' }}
+                      >
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'var(--mint)' }}>
+                          <i className="ti ti-check text-[var(--ink)] text-[10px]" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ background: entry.type === 'diya' ? 'rgba(220,38,38,0.08)' : 'rgba(34,197,94,0.08)', color: entry.type === 'diya' ? 'var(--crimson)' : '#22c55e' }}>
+                              {entry.type === 'diya' ? 'Diya' : 'Liya'}
+                            </span>
+                            {entry.category && entry.category !== 'general' && (
+                              <span className="text-[10px] text-[var(--ink)]/40">{entry.category}</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                            {entryDate && (
+                              <span className="text-[10px] text-[var(--ink)]/40">
+                                {entryDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                              </span>
+                            )}
+                            {settledDate && (
+                              <>
+                                <span className="text-[var(--ink)]/20">→</span>
+                                <span className="text-[10px] text-[#22c55e] font-medium">
+                                  Settled {settledDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                                  {' '}{settledDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                          {entry.note && <p className="text-[10px] text-[var(--ink)]/30 mt-0.5 truncate">{entry.note}</p>}
+                        </div>
+                        <div className="text-sm font-mono font-semibold text-[var(--ink)]">
+                          {formatCurrency(entry.amount)}
+                        </div>
+                        <button
+                          onClick={() => handleUnsettle(entry.id)}
+                          className="p-1.5 rounded-lg text-[var(--ink)]/30 hover:text-[var(--pumpkin)] hover:bg-[var(--pumpkin)]/10 transition-all cursor-pointer shrink-0"
+                          title="Undo settle"
+                        >
+                          <i className="ti ti-rotate text-xs" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            ))}
           </motion.div>
         ) : (
           /* EMPTY STATE */

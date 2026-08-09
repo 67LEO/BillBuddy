@@ -884,3 +884,138 @@ export async function findGroupsByMemberMobile(mobileNumbers) {
   if (error) return [];
   return data || [];
 }
+
+// ============================================
+// ADMIN (sirf 2 admin emails)
+// ============================================
+
+export async function fetchAdminStatus() {
+  if (!supabase) return false;
+  const { data, error } = await supabase.rpc('is_admin');
+  if (error) {
+    console.error('BillBuddy: is_admin RPC failed —', error.message);
+    return false;
+  }
+  return !!data;
+}
+
+export async function fetchAllUsers() {
+  if (!supabase) return { users: [], error: 'Supabase not configured' };
+  const { data, error } = await supabase.rpc('get_all_users');
+  if (error) {
+    console.error('BillBuddy: get_all_users RPC failed —', error.message);
+    return { users: [], error: error.message };
+  }
+  return { users: data || [], error: null };
+}
+
+// ============================================
+// DUPLICATE MOBILE CHECK (masked info)
+// ============================================
+
+export async function checkMobileExists(mobileNumbers) {
+  if (!supabase) return { conflicts: [], error: 'Supabase not configured' };
+
+  const cleaned = mobileNumbers
+    .map((n) => (n || '').replace(/\D/g, '').slice(-10))
+    .filter((n) => n && n.length === 10);
+  if (cleaned.length === 0) return { conflicts: [], error: null };
+
+  const { data, error } = await supabase.rpc('check_mobile_exists', {
+    mobile_numbers: cleaned,
+  });
+
+  if (error) {
+    console.error('BillBuddy: check_mobile_exists RPC failed —', error.message);
+    return { conflicts: [], error: error.message };
+  }
+  return { conflicts: data || [], error: null };
+}
+
+// ============================================
+// GROUP ACTIVITY NOTIFICATIONS
+// ============================================
+
+export async function logGroupActivity({ groupId, action, amount, description, memberName }) {
+  if (!supabase || !groupId) return;
+  const { error } = await supabase.rpc('log_group_activity', {
+    p_group_id: groupId,
+    p_action: action,
+    p_amount: amount || null,
+    p_description: description || '',
+    p_member_name: memberName || '',
+  });
+  if (error) console.error('BillBuddy: log_group_activity failed —', error.message);
+}
+
+export async function fetchNotifications(userId) {
+  if (!supabase || !userId) return [];
+  const { data, error } = await supabase
+    .from('notifications')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(50);
+  if (error) {
+    console.error('BillBuddy: fetchNotifications failed —', error.message);
+    return [];
+  }
+  return data || [];
+}
+
+export async function markNotificationsRead(ids) {
+  if (!supabase || !ids || ids.length === 0) return;
+  const { error } = await supabase
+    .from('notifications')
+    .update({ read_at: new Date().toISOString() })
+    .in('id', ids);
+  if (error) console.error('BillBuddy: markNotificationsRead failed —', error.message);
+}
+
+// ============================================
+// PRESENCE — Online Abhi (real-time)
+// Channel me presence key = user.id taaki ek user ke
+// multiple tabs merge ho jayein (unique online users).
+// ============================================
+
+const PRESENCE_CHANNEL = 'billbuddy-online';
+
+export function trackPresence(user) {
+  if (!supabase || !user) return null;
+  const channel = supabase.channel(PRESENCE_CHANNEL, {
+    config: { presence: { key: user.id } },
+  });
+  channel.subscribe((status) => {
+    if (status === 'SUBSCRIBED') {
+      channel.track({
+        user_id: user.id,
+        email: user.email || '',
+        online_at: new Date().toISOString(),
+      });
+    }
+  });
+  return channel;
+}
+
+export function subscribeActiveUsers(onChange) {
+  if (!supabase) return null;
+  const channel = supabase.channel(PRESENCE_CHANNEL, {
+    config: { presence: { key: `observer-${Math.random().toString(36).slice(2, 10)}` } },
+  });
+  channel.subscribe((status) => {
+    if (status !== 'SUBSCRIBED') return;
+    const push = () => {
+      const state = channel.presenceState();
+      const seen = {};
+      Object.values(state)
+        .flat()
+        .forEach((p) => {
+          if (p && p.user_id && !seen[p.user_id]) seen[p.user_id] = p;
+        });
+      onChange(Object.values(seen));
+    };
+    channel.on('presence', { event: 'sync' }, push);
+    push();
+  });
+  return channel;
+}

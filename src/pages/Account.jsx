@@ -9,6 +9,7 @@ import {
   getFilteredAccounts,
   getAccountStats,
   getUniquePersons,
+  groupAccountsByPerson,
   DEFAULT_CATEGORIES,
 } from '../utils/accountUtils';
 import { exportCSV, exportPDF, generateShareText, shareGeneric } from '../utils/exportUtils';
@@ -84,6 +85,7 @@ export default function Account() {
 
   const activeEntries = filteredAccounts.filter((a) => !a.isSettled);
   const settledEntries = state.accounts.filter((a) => a.isSettled);
+  const settledByPerson = useMemo(() => groupAccountsByPerson(settledEntries), [settledEntries]);
 
   const suggestions = useMemo(() => {
     if (!personName.trim()) return [];
@@ -1300,62 +1302,87 @@ export default function Account() {
               className="flex items-center gap-2 text-sm text-[var(--ink)]/50 hover:text-[var(--ink)] transition-colors cursor-pointer mb-2"
             >
               <i className={`ti ti-chevron-${showArchive ? 'up' : 'down'}`} />
-              <span>Settled ({settledEntries.length})</span>
+              <span>Person-wise History ({settledByPerson.length} persons)</span>
             </button>
             {showArchive && (
-              <div className="space-y-2">
-                {settledEntries.map((entry) => {
-                  const entryDate = entry.date ? new Date(entry.date) : null;
-                  const settledDate = entry.settledAt ? new Date(entry.settledAt) : null;
-                  return (
-                    <div
-                      key={entry.id}
-                      className="ink-border rounded-2xl p-3 opacity-60"
-                      style={{ background: 'var(--cream-2)' }}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'var(--mint)' }}>
-                          <i className="ti ti-check text-[var(--ink)] text-xs" />
+              <div className="space-y-3">
+                {settledByPerson.map((person) => (
+                  <div
+                    key={person.name}
+                    className="ink-border rounded-2xl p-4"
+                    style={{ background: 'rgba(34,197,94,0.03)' }}
+                  >
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'var(--mint)' }}>
+                        <span className="text-[var(--ink)] font-bold text-sm">{person.name[0].toUpperCase()}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-bold text-[var(--ink)] font-display">{person.name}</div>
+                        <div className="text-[10px] text-[var(--ink)]/40">{person.entries.length} settled entries</div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-sm font-bold font-mono text-[var(--ink)]">{formatCurrency(person.total)}</div>
+                        <div className="text-[10px] text-[var(--ink)]/40">
+                          D: {formatCurrency(person.totalDiya)} · L: {formatCurrency(person.totalLiya)}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm text-[var(--ink)] font-medium">{entry.personName}</span>
-                            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ background: entry.type === 'diya' ? 'rgba(220,38,38,0.08)' : 'rgba(34,197,94,0.08)', color: entry.type === 'diya' ? 'var(--crimson)' : 'var(--mint)' }}>
-                              {entry.type === 'diya' ? 'Diya' : 'Liya'}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            {entryDate && (
-                              <span className="text-[10px] text-[var(--ink)]/40">
-                                {entryDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                              </span>
-                            )}
-                            {settledDate && (
-                              <>
-                                <span className="text-[var(--ink)]/20">→</span>
-                                <span className="text-[10px] text-[var(--mint)] font-medium">
-                                  Settled {settledDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                                  {' '}{settledDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                                </span>
-                              </>
-                            )}
-                          </div>
-                          {entry.note && <p className="text-[10px] text-[var(--ink)]/30 mt-0.5">{entry.note}</p>}
-                        </div>
-                        <div className="text-sm font-mono font-semibold text-[var(--ink)]">
-                          {formatCurrency(entry.amount)}
-                        </div>
-                        <button
-                          onClick={() => handleUnsettle(entry.id)}
-                          className="p-1.5 rounded-lg text-[var(--ink)]/30 hover:text-[var(--pumpkin)] hover:bg-[var(--pumpkin)]/10 transition-all cursor-pointer shrink-0"
-                          title="Undo settle"
-                        >
-                          <i className="ti ti-rotate text-xs" />
-                        </button>
                       </div>
                     </div>
-                  );
-                })}
+                    <div className="space-y-1.5">
+                      {person.entries.map((entry) => {
+                        const entryDate = entry.date ? new Date(entry.date) : null;
+                        const settledDate = entry.settledAt ? new Date(entry.settledAt) : null;
+                        return (
+                          <div
+                            key={entry.id}
+                            className="rounded-xl p-2.5 flex items-center gap-3 opacity-70"
+                            style={{ background: 'var(--cream-2)' }}
+                          >
+                            <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'var(--mint)' }}>
+                              <i className="ti ti-check text-[var(--ink)] text-[10px]" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ background: entry.type === 'diya' ? 'rgba(220,38,38,0.08)' : 'rgba(34,197,94,0.08)', color: entry.type === 'diya' ? 'var(--crimson)' : '#22c55e' }}>
+                                  {entry.type === 'diya' ? 'Diya' : 'Liya'}
+                                </span>
+                                {entry.category && entry.category !== 'general' && (
+                                  <span className="text-[10px] text-[var(--ink)]/40">{entry.category}</span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                {entryDate && (
+                                  <span className="text-[10px] text-[var(--ink)]/40">
+                                    {entryDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                  </span>
+                                )}
+                                {settledDate && (
+                                  <>
+                                    <span className="text-[var(--ink)]/20">→</span>
+                                    <span className="text-[10px] text-[#22c55e] font-medium">
+                                      Settled {settledDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                                      {' '}{settledDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                              {entry.note && <p className="text-[10px] text-[var(--ink)]/30 mt-0.5 truncate">{entry.note}</p>}
+                            </div>
+                            <div className="text-sm font-mono font-semibold text-[var(--ink)]">
+                              {formatCurrency(entry.amount)}
+                            </div>
+                            <button
+                              onClick={() => handleUnsettle(entry.id)}
+                              className="p-1.5 rounded-lg text-[var(--ink)]/30 hover:text-[var(--pumpkin)] hover:bg-[var(--pumpkin)]/10 transition-all cursor-pointer shrink-0"
+                              title="Undo settle"
+                            >
+                              <i className="ti ti-rotate text-xs" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </motion.div>

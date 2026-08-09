@@ -72,6 +72,7 @@ function ExpenseModal({ group, expense, onClose }) {
           type: 'UPDATE_EXPENSE',
           payload: {
             id: expense.id,
+            groupId: expense.groupId,
             updates: {
               payerId,
               amount: amt,
@@ -105,6 +106,7 @@ function ExpenseModal({ group, expense, onClose }) {
           type: 'UPDATE_EXPENSE',
           payload: {
             id: expense.id,
+            groupId: expense.groupId,
             updates: {
               payerId,
               amount: amt,
@@ -432,10 +434,15 @@ export default function GroupView() {
   const [showAddMember, setShowAddMember] = useState(false);
   const [newMemberName, setNewMemberName] = useState('');
 
-  const group = state.groups.find((g) => g.id === groupId);
+  const ownedGroup = state.groups.find((g) => g.id === groupId);
+  const sharedGroup = state.sharedGroups.find((g) => g.id === groupId);
+  const group = ownedGroup || sharedGroup;
+  const isShared = !!sharedGroup && !ownedGroup;
   const groupExpenses = useMemo(
-    () => state.expenses.filter((e) => e.groupId === groupId).sort((a, b) => new Date(b.date) - new Date(a.date)),
-    [state.expenses, groupId]
+    () => (isShared ? state.sharedExpenses : state.expenses)
+      .filter((e) => e.groupId === groupId)
+      .sort((a, b) => new Date(b.date) - new Date(a.date)),
+    [isShared, state.sharedExpenses, state.expenses, groupId]
   );
 
   const balances = useMemo(() => {
@@ -497,25 +504,37 @@ export default function GroupView() {
             </p>
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
-            <motion.button
-              whileHover={{ scale: 1.04 }}
-              whileTap={{ scale: 0.96 }}
-              onClick={() => navigate(`/settlement/${groupId}`)}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium cursor-pointer transition-colors"
-              style={{ background: 'var(--mint)', color: 'var(--ink)', border: '2px solid var(--ink)' }}
-            >
-              <i className="ti ti-arrow-right" />
-              Settle Up
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.04 }}
-              whileTap={{ scale: 0.96 }}
-              onClick={openAddModal}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl text-sm font-medium cursor-pointer btn-crimson"
-            >
-              <i className="ti ti-plus" />
-              Add Expense
-            </motion.button>
+            {isShared ? (
+              <div
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium"
+                style={{ background: 'rgba(224,130,68,0.1)', color: 'var(--pumpkin)', border: '1px dashed var(--pumpkin)' }}
+              >
+                <i className="ti ti-eye" />
+                Shared by {group.sharedBy || 'someone'} · View only
+              </div>
+            ) : (
+              <>
+                <motion.button
+                  whileHover={{ scale: 1.04 }}
+                  whileTap={{ scale: 0.96 }}
+                  onClick={() => navigate(`/settlement/${groupId}`)}
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium cursor-pointer transition-colors"
+                  style={{ background: 'var(--mint)', color: 'var(--ink)', border: '2px solid var(--ink)' }}
+                >
+                  <i className="ti ti-arrow-right" />
+                  Settle Up
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.04 }}
+                  whileTap={{ scale: 0.96 }}
+                  onClick={openAddModal}
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl text-sm font-medium cursor-pointer btn-crimson"
+                >
+                  <i className="ti ti-plus" />
+                  Add Expense
+                </motion.button>
+              </>
+            )}
           </div>
         </div>
 
@@ -525,12 +544,14 @@ export default function GroupView() {
             <span className="label" style={{ marginBottom: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
               <i className="ti ti-chart-bar text-sm" /> Members & Balances
             </span>
-            <button
-              onClick={() => setShowAddMember(!showAddMember)}
-              className="text-xs text-[var(--crimson)] hover:text-[var(--pumpkin)] flex items-center gap-1 cursor-pointer"
-            >
-              <i className="ti ti-user-plus text-sm" /> Add
-            </button>
+            {!isShared && (
+              <button
+                onClick={() => setShowAddMember(!showAddMember)}
+                className="text-xs text-[var(--crimson)] hover:text-[var(--pumpkin)] flex items-center gap-1 cursor-pointer"
+              >
+                <i className="ti ti-user-plus text-sm" /> Add
+              </button>
+            )}
           </div>
           {showAddMember && (
             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} className="flex gap-2 mb-3">
@@ -721,24 +742,29 @@ export default function GroupView() {
                       <div className="text-right shrink-0">
                         <div className="text-base sm:text-lg font-bold text-[var(--ink)] font-display">{formatCurrency(expense.amount)}</div>
                         {/* Action buttons — always visible on mobile, hover on desktop */}
-                        <div className="flex items-center justify-end gap-1 mt-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={() => openEditModal(expense)}
-                            className="p-1.5 rounded-lg text-[var(--ink)]/40 hover:text-[var(--pumpkin)] hover:bg-[var(--pumpkin)]/10 transition-all cursor-pointer"
-                          >
-                            <i className="ti ti-pencil text-xs" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              if (confirm('Yeh expense delete ho jayega?')) {
-                                dispatch({ type: 'DELETE_EXPENSE', payload: expense.id });
-                              }
-                            }}
-                            className="p-1.5 rounded-lg text-[var(--ink)]/40 hover:text-[var(--crimson)] hover:bg-[var(--crimson)]/10 transition-all cursor-pointer"
-                          >
-                            <i className="ti ti-trash text-xs" />
-                          </button>
-                        </div>
+                        {!isShared && (
+                          <div className="flex items-center justify-end gap-1 mt-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                            <button
+                              onClick={() => openEditModal(expense)}
+                              className="p-1.5 rounded-lg text-[var(--ink)]/40 hover:text-[var(--pumpkin)] hover:bg-[var(--pumpkin)]/10 transition-all cursor-pointer"
+                            >
+                              <i className="ti ti-pencil text-xs" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (confirm('Yeh expense delete ho jayega?')) {
+                                  dispatch({
+                                    type: 'DELETE_EXPENSE',
+                                    payload: { id: expense.id, groupId: expense.groupId, description: expense.description },
+                                  });
+                                }
+                              }}
+                              className="p-1.5 rounded-lg text-[var(--ink)]/40 hover:text-[var(--crimson)] hover:bg-[var(--crimson)]/10 transition-all cursor-pointer"
+                            >
+                              <i className="ti ti-trash text-xs" />
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </motion.div>

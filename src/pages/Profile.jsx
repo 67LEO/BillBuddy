@@ -5,17 +5,21 @@ import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { stagger, fadeUp } from '../utils/animations';
 import { getAccountStats } from '../utils/accountUtils';
+import { checkMobileExists } from '../lib/supabase';
 
 export default function Profile() {
   const navigate = useNavigate();
   const { state, dispatch } = useApp();
-  const { user, logout } = useAuth();
+  const { user, logout, isAdmin } = useAuth();
 
   const [displayName, setDisplayName] = useState('');
   const [mobile, setMobile] = useState('');
   const [mobile2, setMobile2] = useState('');
   const [saving, setSaving] = useState(false);
+  const [checking, setChecking] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [duplicateMobile, setDuplicateMobile] = useState([]);
+  const [checkError, setCheckError] = useState('');
 
   useEffect(() => {
     if (state.profile) {
@@ -28,6 +32,28 @@ export default function Profile() {
   const stats = getAccountStats(state.accounts);
 
   const handleSave = async () => {
+    setCheckError('');
+    const mobiles = [mobile.trim(), mobile2.trim()].filter((m) => m && m.replace(/\D/g, '').length === 10);
+    setChecking(true);
+    try {
+      const res = await checkMobileExists(mobiles);
+      if (res.error) {
+        setCheckError('Duplicate check abhi kaam nahi kar raha — database functions run nahi hui. Thodi der baad try karo.');
+        setChecking(false);
+        return;
+      }
+      if (res.conflicts.length > 0) {
+        setDuplicateMobile(res.conflicts);
+        setChecking(false);
+        return;
+      }
+    } catch (e) {
+      console.error('Mobile check failed:', e);
+      setCheckError('Duplicate check me dikkat aayi — thodi der baad try karo.');
+      setChecking(false);
+      return;
+    }
+    setChecking(false);
     setShowConfirm(true);
   };
 
@@ -130,14 +156,20 @@ export default function Profile() {
               </div>
               <div className="text-xs text-[var(--ink)]/40 mt-1">Max 2 numbers — doosra number optional hai</div>
             </div>
+            {checkError && (
+              <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl text-xs border-2 border-[var(--pumpkin)]/40" style={{ background: 'rgba(224,130,68,0.08)', color: 'var(--ink)' }}>
+                <i className="ti ti-alert-triangle text-[var(--pumpkin)] text-sm shrink-0 mt-0.5" />
+                <span>{checkError}</span>
+              </div>
+            )}
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={handleSave}
-              disabled={saving}
+              disabled={saving || checking}
               className="btn-crimson w-full py-3"
             >
-              {saving ? 'Saving...' : 'Save Profile'}
+              {checking ? 'Checking...' : saving ? 'Saving...' : 'Save Profile'}
             </motion.button>
           </div>
         </motion.div>
@@ -199,6 +231,23 @@ export default function Profile() {
             </div>
             <i className="ti ti-chevron-right text-[var(--ink)]/40" />
           </button>
+
+          {isAdmin && (
+            <button
+              onClick={() => navigate('/admin')}
+              className="w-full ink-border rounded-xl p-4 flex items-center gap-3 hover:bg-[var(--ink)]/5 transition-colors cursor-pointer text-left"
+              style={{ background: 'var(--cream-2)', borderColor: 'rgba(58,44,92,0.3)' }}
+            >
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'var(--ink)' }}>
+                <i className="ti ti-shield-lock text-[var(--cream)]" />
+              </div>
+              <div className="flex-1">
+                <div className="text-sm font-semibold text-[var(--ink)]">Admin Panel</div>
+                <div className="text-xs text-[var(--ink)]/50">Total users aur activity</div>
+              </div>
+              <i className="ti ti-chevron-right text-[var(--ink)]/40" />
+            </button>
+          )}
         </motion.div>
 
         {/* LOGOUT */}
@@ -277,6 +326,59 @@ export default function Profile() {
               >
                 {saving ? 'Saving...' : 'Haan, Save Karo'}
               </motion.button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+
+      {/* DUPLICATE MOBILE WARNING MODAL */}
+      {duplicateMobile.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(58,44,92,0.4)', backdropFilter: 'blur(8px)' }}
+          onClick={() => setDuplicateMobile([])}
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            className="ink-border rounded-2xl p-6 w-full max-w-sm"
+            style={{ background: 'var(--cream)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-center mb-5">
+              <div className="w-14 h-14 rounded-2xl mx-auto mb-3 flex items-center justify-center" style={{ background: 'var(--crimson)' }}>
+                <i className="ti ti-alert-triangle text-2xl text-[var(--cream)]" />
+              </div>
+              <h3 className="text-lg font-bold text-[var(--ink)] font-display mb-1">Yeh Number Already Hai!</h3>
+              <p className="text-sm text-[var(--ink)]/50">Ek mobile number sirf ek hi account me use ho sakta hai.</p>
+            </div>
+
+            <div className="rounded-xl p-4 mb-5 space-y-2" style={{ background: 'rgba(194,61,61,0.06)' }}>
+              {duplicateMobile.map((d, i) => (
+                <div key={i} className="flex items-center justify-between text-sm">
+                  <span className="text-[var(--ink)]/50">+91 {d.mobile}</span>
+                  <span className="font-semibold text-[var(--ink)]">
+                    {d.display_name_masked} · {d.email_masked}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-[var(--ink)]/50 text-center mb-4">
+              Upar wala number <span className="font-semibold text-[var(--crimson)]">pehle se kisi aur account</span> me hai.
+              Apna alag number daalo ya phir usi account se login karo.
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDuplicateMobile([])}
+                className="flex-1 py-3 rounded-xl text-sm font-semibold text-[var(--cream)] transition-all cursor-pointer"
+                style={{ background: 'var(--ink)' }}
+              >
+                <i className="ti ti-check mr-1" /> Theek Hai
+              </button>
             </div>
           </motion.div>
         </motion.div>
